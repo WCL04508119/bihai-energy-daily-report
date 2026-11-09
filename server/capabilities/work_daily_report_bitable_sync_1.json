@@ -1,0 +1,231 @@
+{
+  "id": "work_daily_report_bitable_sync_1",
+  "pluginKey": "@official-plugins/feishu-bitable",
+  "pluginVersion": "1.0.27",
+  "name": "工作日报同步多维表格",
+  "description": "用于工作日报数据同步到飞书多维表格，包含填报人、日报ID、填报日期、所属部门、任务来源、任务名称、项目名称/任务名称、项目编号、项目阶段、PLM任务、开始时间、结束时间、当日计划、当日完成情况、日报内容、输出内容、完成百分比、工时（小时）、输出文件数量、出图数量、偏差原因与问题、需协助事项、完成情况判定等字段。",
+  "icon": "",
+  "paramsSchema": {},
+  "formValue": {
+    "appToken": "",
+    "tableID": "tblMCsMU8CKRrffq",
+    "fields": [
+      {
+        "id": "fld_daily_report_id",
+        "name": "日报ID",
+        "type": 1,
+        "bizType": "Text",
+        "readable": true,
+        "writeable": true
+      },
+      {
+        "readable": true,
+        "writeable": true,
+        "id": "fld_report_date",
+        "name": "填报日期",
+        "type": 5,
+        "bizType": "DateTime"
+      },
+      {
+        "type": 3,
+        "bizType": "SingleSelect",
+        "readable": true,
+        "writeable": true,
+        "enumValues": [
+          "产品创新室",
+          "仪电室",
+          "工艺模块室",
+          "热工室",
+          "工业炉室",
+          "项目部",
+          "财务部",
+          "人力资源部",
+          "国际市场部",
+          "国内市场部",
+          "行政部",
+          "公司领导",
+          "部门领导"
+        ],
+        "id": "fld_department",
+        "name": "所属部门"
+      },
+      {
+        "id": "fld_task_source",
+        "name": "任务来源",
+        "type": 3,
+        "bizType": "SingleSelect",
+        "readable": true,
+        "writeable": true,
+        "enumValues": [
+          "部门日常",
+          "项目任务",
+          "临时需求",
+          "会议安排",
+          "跨部门协作"
+        ]
+      },
+      {
+        "id": "fld_task_name",
+        "name": "任务名称",
+        "type": 1,
+        "bizType": "Text",
+        "readable": true,
+        "writeable": true
+      },
+      {
+        "bizType": "Text",
+        "readable": true,
+        "writeable": true,
+        "id": "fld_project_task_name",
+        "name": "项目名称/任务名称",
+        "type": 1
+      },
+      {
+        "writeable": true,
+        "id": "fld_project_code",
+        "name": "项目编号",
+        "type": 1,
+        "bizType": "Text",
+        "readable": true
+      },
+      {
+        "id": "fld_project_phase",
+        "name": "项目阶段",
+        "type": 1,
+        "bizType": "Text",
+        "readable": true,
+        "writeable": true
+      },
+      {
+        "type": 1,
+        "bizType": "Text",
+        "readable": true,
+        "writeable": true,
+        "id": "fld_plm_task",
+        "name": "PLM任务"
+      },
+      {
+        "readable": true,
+        "writeable": true,
+        "id": "fld_start_time",
+        "name": "开始时间",
+        "type": 1,
+        "bizType": "Text"
+      },
+      {
+        "id": "fld_end_time",
+        "name": "结束时间",
+        "type": 1,
+        "bizType": "Text",
+        "readable": true,
+        "writeable": true
+      },
+      {
+        "bizType": "Text",
+        "readable": true,
+        "writeable": true,
+        "id": "fld_daily_plan",
+        "name": "当日计划",
+        "type": 1
+      },
+      {
+        "writeable": true,
+        "id": "fld_daily_completion",
+        "name": "当日完成情况",
+        "type": 1,
+        "bizType": "Text",
+        "readable": true
+      },
+      {
+        "readable": true,
+        "writeable": true,
+        "id": "fld_daily_content",
+        "name": "日报内容",
+        "type": 1,
+        "bizType": "Text"
+      },
+      {
+        "id": "fld_output_content",
+        "name": "输出内容",
+        "type": 1,
+        "bizType": "Text",
+        "readable": true,
+        "writeable": true
+      },
+      {
+        "id": "fld_completion_percent",
+        "name": "完成百分比",
+        "type": 2,
+        "bizType": "Number",
+        "readable": true,
+        "writeable": true
+      },
+      {
+        "id": "fld_work_hours",
+        "name": "工时（小时）",
+        "type": 2,
+        "bizType": "Number",
+        "readable": true,
+        "writeable": true
+      },
+      {
+        "readable": true,
+        "writeable": true,
+        "id": "fld_output_file_count",
+        "name": "输出文件数量",
+        "type": 2,
+        "bizType": "Number"
+      },
+      {
+        "id": "fld_drawing_count",
+        "name": "出图数量",
+        "type": 2,
+        "bizType": "Number",
+        "readable": true,
+        "writeable": true
+      },
+      {
+        "type": 1,
+        "bizType": "Text",
+        "readable": true,
+        "writeable": true,
+        "id": "fld_deviation_reason",
+        "name": "偏差原因与问题"
+      },
+      {
+        "bizType": "Text",
+        "readable": true,
+        "writeable": true,
+        "id": "fld_assistance_needed",
+        "name": "需协助事项",
+        "type": 1
+      },
+      {
+        "id": "fld_completion_status",
+        "name": "完成情况判定",
+        "type": 3,
+        "bizType": "SingleSelect",
+        "readable": true,
+        "writeable": true,
+        "enumValues": [
+          "按计划完成",
+          "提前完成",
+          "部分完成",
+          "未完成",
+          "无计划事项"
+        ]
+      },
+      {
+        "id": "fld_reporter",
+        "name": "填报人",
+        "type": 1,
+        "bizType": "Text",
+        "readable": true,
+        "writeable": true
+      }
+    ]
+  },
+  "createdAt": 1793841758473,
+  "updatedAt": 1793841758473,
+  "createdBy": 7701518941809642488
+}

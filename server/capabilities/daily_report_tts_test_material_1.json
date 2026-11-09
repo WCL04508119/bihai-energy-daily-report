@@ -1,0 +1,27 @@
+{
+  "id": "daily_report_tts_test_material_1",
+  "pluginKey": "@official-plugins/ai-speech-synthesis",
+  "pluginVersion": "1.0.13",
+  "name": "日报系统语音合成测试素材",
+  "description": "将中文文本合成为中文女声语音音频文件，用于日报系统语音转写功能的测试素材生成。",
+  "icon": "",
+  "paramsSchema": {
+    "type": "object",
+    "properties": {
+      "text": {
+        "type": "string",
+        "description": "待合成为语音的中文文本内容"
+      }
+    },
+    "required": [
+      "text"
+    ]
+  },
+  "formValue": {
+    "text": "{{input.text}}",
+    "voiceType": "zh_female_qingxinnvsheng_mars_bigtts"
+  },
+  "createdAt": 1793784904213,
+  "updatedAt": 1793784904213,
+  "createdBy": 7701518941809642488
+}

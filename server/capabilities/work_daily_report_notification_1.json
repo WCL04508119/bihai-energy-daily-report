@@ -1,0 +1,45 @@
+{
+  "id": "work_daily_report_notification_1",
+  "pluginKey": "@official-plugins/send-feishu-message",
+  "pluginVersion": "1.0.33",
+  "name": "工作日报定时通知发送",
+  "description": "工作日报系统定时自动发送日报通知飞书消息，支持自定义标题、正文和接收人列表。",
+  "icon": "",
+  "paramsSchema": {
+    "type": "object",
+    "properties": {
+      "title": {
+        "type": "string",
+        "description": "消息标题"
+      },
+      "content": {
+        "type": "string",
+        "description": "markdown 格式正文内容"
+      },
+      "receiverIds": {
+        "type": "array",
+        "description": "接收人妙达用户ID列表",
+        "items": {
+          "description": "接收人用户ID",
+          "type": "string"
+        }
+      }
+    },
+    "required": [
+      "title",
+      "content",
+      "receiverIds"
+    ]
+  },
+  "formValue": {
+    "content": "{{input.content}}",
+    "receiverUserList": "{{input.receiverIds}}",
+    "sender": "bot",
+    "title": {
+      "title": "{{input.title}}"
+    }
+  },
+  "createdAt": 1793786038374,
+  "updatedAt": 1793786038374,
+  "createdBy": 7701518941809642488
+}

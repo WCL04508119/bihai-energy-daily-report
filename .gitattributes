@@ -1,0 +1,7 @@
+# 统一换行符：仓库内保存 LF，Windows 检出的 .sh 脚本仍是 LF，避免在 Git Bash / WSL 下执行失败
+* text=auto eol=lf
+*.sh text eol=lf
+*.png binary
+*.jpg binary
+*.ico binary
+*.zip binary

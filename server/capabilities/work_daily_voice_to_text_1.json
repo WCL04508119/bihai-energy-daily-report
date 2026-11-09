@@ -1,0 +1,31 @@
+{
+  "id": "work_daily_voice_to_text_1",
+  "pluginKey": "@official-plugins/speech-file-to-text",
+  "pluginVersion": "1.0.15",
+  "name": "日报表单语音转文字",
+  "description": "用于工作日报系统的语音输入功能，将员工录制的日报内容音频转换为中文文字，自动填入日报表单的文本字段。",
+  "icon": "",
+  "paramsSchema": {
+    "type": "object",
+    "properties": {
+      "audio_file": {
+        "description": "员工录制的日报音频文件",
+        "items": {
+          "type": "string"
+        },
+        "type": "array",
+        "format": "plugin-file-url"
+      }
+    },
+    "required": [
+      "audio_file"
+    ]
+  },
+  "formValue": {
+    "audioUrl": "{{input.audio_file}}",
+    "language": "zh"
+  },
+  "createdAt": 1793777550339,
+  "updatedAt": 1793777550339,
+  "createdBy": 7701518941809642488
+}

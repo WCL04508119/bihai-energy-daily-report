@@ -1,0 +1,31 @@
+{
+  "id": "bihai_smart_employee_daily_report_1",
+  "pluginKey": "@official-plugins/ai-text-generate",
+  "pluginVersion": "1.0.21",
+  "name": "碧海数智员工-日报生成",
+  "description": "用于工作日报系统的智能文本生成实例，支持员工对话生成日报/周报草稿，以及服务端生成部门周报/月报总结文本，流式输出。",
+  "icon": "",
+  "paramsSchema": {
+    "type": "object",
+    "properties": {
+      "prompt": {
+        "type": "string",
+        "description": "生成日报/周报/月报等文本的完整提示词，由调用方根据具体场景（员工个人日报草稿、部门周报总结、部门月报总结等）组装后传入"
+      }
+    },
+    "required": [
+      "prompt"
+    ]
+  },
+  "formValue": {
+    "modelID": "2015",
+    "modelParams": {
+      "maxTokens": 8192,
+      "temperature": 0.5
+    },
+    "prompt": "{{input.prompt}}"
+  },
+  "createdAt": 1793777550978,
+  "updatedAt": 1793777550978,
+  "createdBy": 7701518941809642488
+}
