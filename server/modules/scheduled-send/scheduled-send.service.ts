@@ -6,6 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
+  AuthNPaasService,
   CapabilityService,
   DRIZZLE_DATABASE,
   type PostgresJsDatabase,
@@ -13,6 +14,11 @@ import {
 import { and, asc, desc, eq, lte } from 'drizzle-orm';
 
 import { scheduledReportSends } from '../../database/schema';
+import {
+  resolveNotificationTargets,
+  sendDailyReportNotification,
+} from '../../common/daily-report-notification';
+import { syncDailyReportToBitable } from '../../common/daily-bitable-sync';
 import { DailyReportService } from '../daily-report/daily-report.service';
 import { CreateDailyReportDto } from '../daily-report/dto/create-daily-report.dto';
 import type { CreateScheduledSendDto } from './dto/create-scheduled-send.dto';
@@ -21,13 +27,10 @@ import {
   isScheduledSendStatus,
   isTaskSource,
   type CreateDailyReportRequest,
-  type DailyReport,
   type ScheduledReportSend,
   type ScheduledSendListResponse,
 } from '@shared/api.interface';
-import type { WorkDailyReportNotificationOneInput } from '@shared/plugin-types';
 
-const NOTIFICATION_INSTANCE_ID = 'work_daily_report_notification_1';
 const SHANGHAI_OFFSET_MS = 8 * 60 * 60 * 1000;
 const SEND_TIME_PATTERN = /^([01]\d|2[0-3]):(00|30)$/;
 const SEND_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -106,6 +109,7 @@ export class ScheduledSendService {
     @Inject(CapabilityService)
     private readonly capabilityService: CapabilityService,
     private readonly dailyReportService: DailyReportService,
+    private readonly authNPaasService: AuthNPaasService,
   ) {}
 
   private mapRow(row: ScheduledSendRow): ScheduledReportSend {
@@ -144,16 +148,19 @@ export class ScheduledSendService {
         '所选发送时间已过，请选择之后的时间',
       );
     }
-    if (dto.recipientIds.length === 0) {
-      throw new BadRequestException('请至少选择一位接收人');
+    if (dto.recipientIds && dto.recipientIds.length === 0) {
+      throw new BadRequestException('接收人不能为空列表');
     }
+    const recipientIds: string[] = resolveNotificationTargets(
+      dto.report as CreateDailyReportRequest,
+    );
     const inserted = await this.db
       .insert(scheduledReportSends)
       .values({
         senderId,
         sendAt,
         reportPayload: dto.report,
-        recipientIds: dto.recipientIds,
+        recipientIds,
         status: 'pending',
       })
       .returning();
@@ -240,21 +247,79 @@ export class ScheduledSendService {
     return { processed: rows.length, sent, failed };
   }
 
+  private async resolveSenderName(
+    userId: string,
+  ): Promise<string | undefined> {
+    try {
+      const infos = await this.authNPaasService.listUsersByIds([userId]);
+      const info =
+        infos.find((item) => item?.miaodaUserID === userId) ?? infos[0];
+      if (!info) return undefined;
+      const name = info.name?.zh_cn ?? info.name?.en_us ?? '';
+      return name.trim() ? name : undefined;
+    } catch (error) {
+      this.logger.warn(
+        `定时日报填报人姓名解析失败 userId=${userId}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      return undefined;
+    }
+  }
+
   private async executeOne(row: ScheduledSendRow): Promise<void> {
     const payload = parseReportPayload(row.reportPayload);
     if (!payload) {
       throw new Error('日报内容数据不完整');
     }
-    const recipients = parseRecipientIds(row.recipientIds);
-    if (recipients.length === 0) {
-      throw new Error('接收人列表为空');
-    }
+    const stored = parseRecipientIds(row.recipientIds);
+    const targets =
+      stored.length > 0 ? stored : resolveNotificationTargets(payload);
+    const reporterName = await this.resolveSenderName(row.senderId);
     const report = await this.dailyReportService.create(
       payload as CreateDailyReportDto,
       row.senderId,
-      '',
+      reporterName ?? '',
+      { notify: false },
     );
-    await this.sendNotification(report, recipients);
+    try {
+      await syncDailyReportToBitable(
+        this.capabilityService,
+        report,
+        reporterName,
+      );
+      this.logger.log(`定时日报已同步多维表格 id=${report.id}`);
+    } catch (error) {
+      this.logger.warn(
+        `定时日报已创建但同步多维表格失败 id=${row.id}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
+    try {
+      await sendDailyReportNotification(
+        this.capabilityService,
+        report,
+        targets,
+      );
+    } catch (error) {
+      const message: string =
+        error instanceof Error ? error.message : '未知错误';
+      this.logger.error(
+        `定时日报已创建但通知发送失败 id=${row.id}: ${message}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+      await this.db
+        .update(scheduledReportSends)
+        .set({
+          status: 'sent',
+          sentAt: new Date(),
+          errorMsg: `日报已创建，通知发送失败：${message}`.slice(0, 500),
+          updatedAt: new Date(),
+        })
+        .where(eq(scheduledReportSends.id, row.id));
+      return;
+    }
     await this.db
       .update(scheduledReportSends)
       .set({
@@ -264,43 +329,5 @@ export class ScheduledSendService {
         updatedAt: new Date(),
       })
       .where(eq(scheduledReportSends.id, row.id));
-  }
-
-  private async sendNotification(
-    report: DailyReport,
-    recipientIds: string[],
-  ): Promise<void> {
-    const lines: string[] = [
-      `**填报日期：** ${report.reportDate}`,
-      `**所属部门：** ${report.department}`,
-      `**任务来源：** ${report.taskSource}`,
-      `**任务名称：** ${report.taskName}`,
-    ];
-    if (report.projectName) {
-      lines.push(`**项目名称：** ${report.projectName.join('、')}`);
-    }
-    if (report.projectCode) {
-      lines.push(`**项目编号：** ${report.projectCode.join('、')}`);
-    }
-    if (report.plmTask) {
-      lines.push(`**PLM任务：** ${report.plmTask}`);
-    }
-    if (report.dayCompletion) {
-      lines.push(`**当日完成情况：** ${report.dayCompletion}`);
-    }
-    if (report.assistanceNeeded) {
-      lines.push(`**需协助事项：** ${report.assistanceNeeded}`);
-    }
-    const input: WorkDailyReportNotificationOneInput = {
-      title: `【日报】${report.taskName}`.slice(0, 50),
-      content: lines.join('\n'),
-      receiverIds: recipientIds,
-    };
-    const result = (await this.capabilityService
-      .load(NOTIFICATION_INSTANCE_ID)
-      .call('send_feishu_message', input)) as { success?: boolean };
-    if (!result || !result.success) {
-      throw new Error('飞书消息发送未成功');
-    }
   }
 }

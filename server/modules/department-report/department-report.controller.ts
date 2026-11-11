@@ -10,8 +10,9 @@ import {
   Req,
 } from '@nestjs/common';
 import type { Request } from 'express';
-import { CanRole } from '@lark-apaas/fullstack-nestjs-core';
+import { CanRole, NeedLogin } from '@lark-apaas/fullstack-nestjs-core';
 import { DepartmentReportService } from './department-report.service';
+import { DataScopeService } from '../data-scope/data-scope.service';
 import {
   DepartmentWeeklyReportQueryDto,
   DepartmentMonthlyReportQueryDto,
@@ -31,23 +32,36 @@ import type {
 export class DepartmentReportController {
   constructor(
     private readonly departmentReportService: DepartmentReportService,
+    private readonly dataScope: DataScopeService,
   ) {}
 
+  @NeedLogin()
   @Get('weekly')
   async findWeekly(
+    @Req() req: Request,
     @Query() query: DepartmentWeeklyReportQueryDto,
   ): Promise<DepartmentWeeklyReportListResponse> {
-    return this.departmentReportService.findWeekly(query);
+    const scope = await this.dataScope.resolve(
+      req.userContext.roles,
+      req.userContext.userId,
+    );
+    return this.departmentReportService.findWeekly(query, scope);
   }
 
+  @NeedLogin()
   @Get('weekly/:id')
   async findWeeklyOne(
+    @Req() req: Request,
     @Param('id') id: string,
   ): Promise<DepartmentWeeklyReportDetail> {
-    return this.departmentReportService.findWeeklyOne(id);
+    const scope = await this.dataScope.resolve(
+      req.userContext.roles,
+      req.userContext.userId,
+    );
+    return this.departmentReportService.findWeeklyOne(id, scope);
   }
 
-  @CanRole(['dept_director'])
+  @CanRole(['dept_director', 'system_admin', 'company_leader'])
   @Post('weekly')
   async createWeekly(
     @Req() req: Request,
@@ -57,7 +71,7 @@ export class DepartmentReportController {
     return this.departmentReportService.createWeekly(dto, userId);
   }
 
-  @CanRole(['dept_director'])
+  @CanRole(['dept_director', 'system_admin', 'company_leader'])
   @Patch('weekly/:id/template')
   async updateWeeklyTemplate(
     @Req() req: Request,
@@ -72,27 +86,39 @@ export class DepartmentReportController {
     );
   }
 
-  @CanRole(['dept_director'])
+  @CanRole(['dept_director', 'system_admin', 'company_leader'])
   @Delete('weekly/:id')
   async removeWeekly(@Param('id') id: string): Promise<{ success: true }> {
     return this.departmentReportService.removeWeekly(id);
   }
 
+  @NeedLogin()
   @Get('monthly')
   async findMonthly(
+    @Req() req: Request,
     @Query() query: DepartmentMonthlyReportQueryDto,
   ): Promise<DepartmentMonthlyReportListResponse> {
-    return this.departmentReportService.findMonthly(query);
+    const scope = await this.dataScope.resolve(
+      req.userContext.roles,
+      req.userContext.userId,
+    );
+    return this.departmentReportService.findMonthly(query, scope);
   }
 
+  @NeedLogin()
   @Get('monthly/:id')
   async findMonthlyOne(
+    @Req() req: Request,
     @Param('id') id: string,
   ): Promise<DepartmentMonthlyReportDetail> {
-    return this.departmentReportService.findMonthlyOne(id);
+    const scope = await this.dataScope.resolve(
+      req.userContext.roles,
+      req.userContext.userId,
+    );
+    return this.departmentReportService.findMonthlyOne(id, scope);
   }
 
-  @CanRole(['dept_director'])
+  @CanRole(['dept_director', 'system_admin', 'company_leader'])
   @Post('monthly')
   async createMonthly(
     @Req() req: Request,
@@ -102,7 +128,7 @@ export class DepartmentReportController {
     return this.departmentReportService.createMonthly(dto, userId);
   }
 
-  @CanRole(['dept_director'])
+  @CanRole(['dept_director', 'system_admin', 'company_leader'])
   @Patch('monthly/:id/template')
   async updateMonthlyTemplate(
     @Req() req: Request,
@@ -117,7 +143,7 @@ export class DepartmentReportController {
     );
   }
 
-  @CanRole(['dept_director'])
+  @CanRole(['dept_director', 'system_admin', 'company_leader'])
   @Delete('monthly/:id')
   async removeMonthly(@Param('id') id: string): Promise<{ success: true }> {
     return this.departmentReportService.removeMonthly(id);

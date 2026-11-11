@@ -14,6 +14,9 @@ import { ReportDocumentModule } from './modules/report-document/report-document.
 import { TaskPoolModule } from './modules/task-pool/task-pool.module';
 import { FeishuModule } from './modules/feishu/feishu.module';
 import { FeishuTaskSyncModule } from './modules/feishu-task-sync/feishu-task-sync.module';
+import { DataScopeModule } from './modules/data-scope/data-scope.module';
+import { ManagerDashboardModule } from './modules/manager-dashboard/manager-dashboard.module';
+import { UserDepartmentModule } from './modules/user-department/user-department.module';
 
 @Module({
   imports: [
@@ -21,6 +24,9 @@ import { FeishuTaskSyncModule } from './modules/feishu-task-sync/feishu-task-syn
     PlatformModule.forRoot(),
     // ====== @route-section: business-modules START ======
     // Place all business modules here.Do NOT add fallback modules here.
+    DataScopeModule,
+    ManagerDashboardModule,
+    UserDepartmentModule,
     DailyReportModule,
     WeeklyReportModule,
     MonthlyReportModule,

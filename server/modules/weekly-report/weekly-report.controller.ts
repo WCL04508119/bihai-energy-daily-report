@@ -7,10 +7,12 @@ import {
   Param,
   Query,
   Req,
+  ForbiddenException,
 } from '@nestjs/common';
 import type { Request } from 'express';
 import { NeedLogin } from '@lark-apaas/fullstack-nestjs-core';
 import { WeeklyReportService } from './weekly-report.service';
+import { DataScopeService } from '../data-scope/data-scope.service';
 import { WeeklyReportQueryDto } from './dto/weekly-report-query.dto';
 import type {
   WeeklyReport,
@@ -21,18 +23,33 @@ import type {
 export class WeeklyReportController {
   constructor(
     private readonly weeklyReportService: WeeklyReportService,
+    private readonly dataScope: DataScopeService,
   ) {}
 
+  @NeedLogin()
   @Get()
   async findAll(
+    @Req() req: Request,
     @Query() query: WeeklyReportQueryDto,
   ): Promise<WeeklyReportListResponse> {
-    return this.weeklyReportService.findAll(query);
+    const scope = await this.dataScope.resolve(
+      req.userContext.roles,
+      req.userContext.userId,
+    );
+    return this.weeklyReportService.findAll(query, scope);
   }
 
+  @NeedLogin()
   @Get(':id')
-  async findOne(@Param('id') id: string): Promise<WeeklyReport> {
-    return this.weeklyReportService.findOne(id);
+  async findOne(
+    @Req() req: Request,
+    @Param('id') id: string,
+  ): Promise<WeeklyReport> {
+    const scope = await this.dataScope.resolve(
+      req.userContext.roles,
+      req.userContext.userId,
+    );
+    return this.weeklyReportService.findOne(id, scope);
   }
 
   @NeedLogin()
@@ -57,7 +74,14 @@ export class WeeklyReportController {
     @Body() body: { weekStart: string; reporterId?: string },
   ): Promise<WeeklyReport> {
     const { userId } = req.userContext;
-    const reporterId = body.reporterId || userId;
-    return this.weeklyReportService.generate(body.weekStart, reporterId);
+    const scope = await this.dataScope.resolve(
+      req.userContext.roles,
+      userId,
+    );
+    const targetId = body.reporterId || userId;
+    if (targetId !== userId && scope.kind === 'self') {
+      throw new ForbiddenException('只能生成本人的周报');
+    }
+    return this.weeklyReportService.generate(body.weekStart, targetId);
   }
 }

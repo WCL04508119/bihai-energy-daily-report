@@ -561,136 +561,33 @@ export type WorkDailyReportBitableSyncOneBatchupdaterecordsOutput = {
 // 由 get_plugin_ai_json 自动生成
 // ============================================================
 
-export type WorkDailyReportBitableSyncV2AddrecordcommentInput = {
-  recordID: string;
-  commentID?: string;
-  content: unknown[];
-};
-
-/**
- * const input: WorkDailyReportBitableSyncV2AddrecordcommentInput = { recordID, commentID, content };
- * capabilityClient.load('work_daily_report_bitable_sync_v2').call<WorkDailyReportBitableSyncV2AddrecordcommentOutput>('addRecordComment', input)
- * 直接返回此类型，无 .data 包装，直接解构使用：
- * const { commentID, replyID } = result;
- * 返回值形如：
- *   {"commentID":"示例文本","replyID":"示例文本"}
- */
-export type WorkDailyReportBitableSyncV2AddrecordcommentOutput = {
-  commentID: string;
-  replyID: string;
-};
-
-export type WorkDailyReportBitableSyncV2AggregatequeryInput = {
-  sort?: {
-    fieldName: string;
-    desc?: boolean;
-  }[];
-  filter?: {
-    conditions?: {
-      fieldName: string;
-      operator: string;
-      value?: string[];
-    }[];
-    conjunction?: string;
-  };
-  expandArrayDimension?: boolean;
-  dimensions?: string[];
-  measures?: {
-    aggregation: string;
-    alias?: string;
-    fieldName: string;
-  }[];
-  pageToken?: string;
-  pageSize?: number;
-};
-
-/**
- * const input: WorkDailyReportBitableSyncV2AggregatequeryInput = { sort, filter, expandArrayDimension, ... };
- * capabilityClient.load('work_daily_report_bitable_sync_v2').call<WorkDailyReportBitableSyncV2AggregatequeryOutput>('aggregateQuery', input)
- * 直接返回此类型，无 .data 包装，直接解构使用：
- * const { result, hasMore, pageToken } = result;
- * 返回值形如：
- *   {"result":[{}],"hasMore":false,"pageToken":"示例文本"}
- */
-export type WorkDailyReportBitableSyncV2AggregatequeryOutput = {
-  result: {
-
-  }[];
-  hasMore: boolean;
-  pageToken?: string;
-};
-
-export type WorkDailyReportBitableSyncV2BatchaddrecordsInput = {
-  records: {
-    record: {
-      '项目阶段'?: unknown;
-      'PLM任务'?: unknown;
-      '当日计划'?: unknown;
-      '需协助事项'?: unknown;
-      '完成情况判定'?: string;
-      '项目名称/任务名称'?: unknown;
-      '填报日期'?: number;
-      '项目编号'?: unknown;
-      '输出内容'?: unknown;
-      '输出文件数量'?: unknown;
-      '日报ID'?: unknown;
-      '任务名称'?: unknown;
-      '结束时间'?: unknown;
-      '当日完成情况'?: unknown;
-      '工时（小时）'?: number;
-      '出图数量'?: number;
-      '填报人'?: unknown;
-      '所属部门'?: string;
-      '开始时间'?: unknown;
-      '日报内容'?: unknown;
-      '完成百分比'?: number;
-      '偏差原因与问题'?: unknown;
-      '任务来源'?: string;
-    };
-  }[];
-};
-
-/**
- * const input: WorkDailyReportBitableSyncV2BatchaddrecordsInput = { records };
- * capabilityClient.load('work_daily_report_bitable_sync_v2').call<WorkDailyReportBitableSyncV2BatchaddrecordsOutput>('batchAddRecords', input)
- * 直接返回此类型，无 .data 包装，直接解构使用：
- * const { records } = result;
- * 返回值形如：
- *   {"records":[{"id":"示例文本"}]}
- */
-export type WorkDailyReportBitableSyncV2BatchaddrecordsOutput = {
-  records: {
-    id: string;
-  }[];
-};
-
 export type WorkDailyReportBitableSyncV2BatchupdaterecordsInput = {
   records: {
     id: string;
     record: {
-      '偏差原因与问题'?: unknown;
-      '填报人'?: unknown;
-      '项目阶段'?: unknown;
-      '当日计划'?: unknown;
+      '所属部门'?: string;
+      '任务名称'?: unknown;
+      '项目编号'?: unknown;
       '当日完成情况'?: unknown;
-      '出图数量'?: number;
-      '完成百分比'?: number;
+      '输出内容'?: unknown;
       '工时（小时）'?: number;
+      '完成情况判定'?: string;
       '日报ID'?: unknown;
       '任务来源'?: string;
-      'PLM任务'?: unknown;
-      '日报内容'?: unknown;
-      '输出文件数量'?: unknown;
-      '需协助事项'?: unknown;
-      '完成情况判定'?: string;
-      '填报日期'?: number;
-      '所属部门'?: string;
-      '结束时间'?: unknown;
-      '输出内容'?: unknown;
-      '任务名称'?: unknown;
       '项目名称/任务名称'?: unknown;
-      '项目编号'?: unknown;
+      '完成百分比'?: number;
+      '输出文件数量'?: unknown;
+      '出图数量'?: number;
+      '偏差原因与问题'?: unknown;
+      '需协助事项'?: unknown;
+      'PLM任务'?: unknown;
+      '结束时间'?: unknown;
+      '日报内容'?: unknown;
+      '填报日期'?: number;
+      '项目阶段'?: unknown;
       '开始时间'?: unknown;
+      '当日计划'?: unknown;
+      '填报人'?: unknown;
     };
   }[];
 };
@@ -709,129 +606,7 @@ export type WorkDailyReportBitableSyncV2BatchupdaterecordsOutput = {
   }[];
 };
 
-export type WorkDailyReportBitableSyncV2DeleterecordcommentInput = {
-  recordID: string;
-  commentID: string;
-  replyID?: string;
-};
-
-/**
- * const input: WorkDailyReportBitableSyncV2DeleterecordcommentInput = { recordID, commentID, replyID };
- * capabilityClient.load('work_daily_report_bitable_sync_v2').call<WorkDailyReportBitableSyncV2DeleterecordcommentOutput>('deleteRecordComment', input)
- * 直接返回此类型，无 .data 包装，直接解构使用：
- * const { commentDeleted, commentID } = result;
- * 返回值形如：
- *   {"commentDeleted":false,"commentID":"示例文本"}
- */
-export type WorkDailyReportBitableSyncV2DeleterecordcommentOutput = {
-  commentDeleted: boolean;
-  commentID: string;
-};
-
-export type WorkDailyReportBitableSyncV2DeleterecordsInput = {
-  recordIDs: string[];
-};
-
-/**
- * const input: WorkDailyReportBitableSyncV2DeleterecordsInput = { recordIDs };
- * capabilityClient.load('work_daily_report_bitable_sync_v2').call<WorkDailyReportBitableSyncV2DeleterecordsOutput>('deleteRecords', input)
- * 直接返回此类型，无 .data 包装，直接解构使用：
- * const { success } = result;
- * 返回值形如：
- *   {"success":false}
- */
-export type WorkDailyReportBitableSyncV2DeleterecordsOutput = {
-  success: boolean;
-};
-
-export type WorkDailyReportBitableSyncV2GetrecordInput = {
-  recordID: string;
-  textFormat?: string;
-};
-
-/**
- * const input: WorkDailyReportBitableSyncV2GetrecordInput = { recordID, textFormat };
- * capabilityClient.load('work_daily_report_bitable_sync_v2').call<WorkDailyReportBitableSyncV2GetrecordOutput>('getRecord', input)
- * 直接返回此类型，无 .data 包装，直接解构使用：
- * const { id, record } = result;
- * 返回值形如：
- *   {"id":"示例文本","record":{"任务名称":null,"项目编号":null,"日报内容":null,"完成百分比":0,"完成情况判定":"示例文本","日报ID":{"text":"示例文本","originalValue":[{}]},"填报日期":0,"开始时间":null,"结束时间":null,"当日完成情况":null,"输出内容":null,"偏差原因与问题":null,"所属部门":"示例文本","任务来源":"示例文本","PLM任务":null,"需协助事项":null,"当日计划":null,"工时（小时）":0,"输出文件数量":null,"出图数量":0,"填报人":null,"项目名称/任务名称":null,"项目阶段":null}}
- */
-export type WorkDailyReportBitableSyncV2GetrecordOutput = {
-  id: string;
-  record?: {
-    '任务名称'?: unknown;
-    '项目编号'?: unknown;
-    '日报内容'?: unknown;
-    '完成百分比'?: number;
-    '完成情况判定'?: string;
-    '日报ID'?: {
-      text: string;
-      originalValue?: {
-        text: string;
-        link?: string;
-        mentionType?: unknown;
-        token?: string;
-        type: string;
-      }[];
-    };
-    '填报日期'?: number;
-    '开始时间'?: unknown;
-    '结束时间'?: unknown;
-    '当日完成情况'?: unknown;
-    '输出内容'?: unknown;
-    '偏差原因与问题'?: unknown;
-    '所属部门'?: string;
-    '任务来源'?: string;
-    'PLM任务'?: unknown;
-    '需协助事项'?: unknown;
-    '当日计划'?: unknown;
-    '工时（小时）'?: number;
-    '输出文件数量'?: unknown;
-    '出图数量'?: number;
-    '填报人'?: unknown;
-    '项目名称/任务名称'?: unknown;
-    '项目阶段'?: unknown;
-  };
-};
-
-export type WorkDailyReportBitableSyncV2ListrecordcommentsInput = {
-  recordID: string;
-  commentID?: string;
-  pageSize?: number;
-  pageToken?: string;
-};
-
-/**
- * const input: WorkDailyReportBitableSyncV2ListrecordcommentsInput = { recordID, commentID, pageSize, ... };
- * capabilityClient.load('work_daily_report_bitable_sync_v2').call<WorkDailyReportBitableSyncV2ListrecordcommentsOutput>('listRecordComments', input)
- * 直接返回此类型，无 .data 包装，直接解构使用：
- * const { comments, hasMore, pageToken } = result;
- * 返回值形如：
- *   {"comments":[{"commentID":"示例文本","creator":0,"createTime":0,"isSolved":false,"replies":[{}]}],"hasMore":false,"pageToken":"示例文本"}
- */
-export type WorkDailyReportBitableSyncV2ListrecordcommentsOutput = {
-  comments: {
-    commentID: string;
-    creator?: number;
-    createTime: number;
-    isSolved: boolean;
-    replies: {
-      replyID: string;
-      creator?: unknown;
-      createTime: unknown;
-      content: unknown[];
-    }[];
-  }[];
-  hasMore: boolean;
-  pageToken: string;
-};
-
 export type WorkDailyReportBitableSyncV2SearchrecordsInput = {
-  textFormat?: string;
-  pageToken?: string;
-  pageSize?: number;
-  fieldNames?: string[];
   sort?: {
     fieldName: string;
     desc?: boolean;
@@ -844,29 +619,31 @@ export type WorkDailyReportBitableSyncV2SearchrecordsInput = {
       fieldName: string;
     }[];
   };
+  textFormat?: string;
+  pageToken?: string;
+  pageSize?: number;
+  fieldNames?: string[];
 };
 
 /**
- * const input: WorkDailyReportBitableSyncV2SearchrecordsInput = { textFormat, pageToken, pageSize, ... };
+ * const input: WorkDailyReportBitableSyncV2SearchrecordsInput = { sort, filter, textFormat, ... };
  * capabilityClient.load('work_daily_report_bitable_sync_v2').call<WorkDailyReportBitableSyncV2SearchrecordsOutput>('searchRecords', input)
  * 直接返回此类型，无 .data 包装，直接解构使用：
- * const { total, records, hasMore, ... } = result;
+ * const { hasMore, pageToken, total, ... } = result;
  * 返回值形如：
- *   {"total":0,"records":[{"id":"示例文本","record":{"完成情况判定":"示例文本","任务名称":null,"项目阶段":null,"输出内容":null,"偏差原因与问题":null,"需协助事项":null,"当日完成情况":null,"填报人":null,"日报ID":{},"任务来源":"示例文本","开始时间":null,"结束时间":null,"当日计划":null,"所属部门":"示例文本","项目编号":null,"PLM任务":null,"工时（小时）":0,"出图数量":0,"日报内容":null,"填报日期":0,"项目名称/任务名称":null,"完成百分比":0,"输出文件数量":null}}],"hasMore":false,"pageToken":"示例文本"}
+ *   {"hasMore":false,"pageToken":"示例文本","total":0,"records":[{"id":"示例文本","record":{"任务名称":null,"PLM任务":null,"完成百分比":0,"工时（小时）":0,"日报ID":{},"任务来源":"示例文本","项目编号":null,"项目阶段":null,"开始时间":null,"当日完成情况":null,"需协助事项":null,"完成情况判定":"示例文本","填报日期":0,"项目名称/任务名称":null,"结束时间":null,"当日计划":null,"日报内容":null,"出图数量":0,"所属部门":"示例文本","输出内容":null,"输出文件数量":null,"偏差原因与问题":null,"填报人":null}}]}
  */
 export type WorkDailyReportBitableSyncV2SearchrecordsOutput = {
+  hasMore: boolean;
+  pageToken?: string;
   total?: number;
   records: {
     id: string;
     record: {
-      '完成情况判定'?: string;
       '任务名称'?: unknown;
-      '项目阶段'?: unknown;
-      '输出内容'?: unknown;
-      '偏差原因与问题'?: unknown;
-      '需协助事项'?: unknown;
-      '当日完成情况'?: unknown;
-      '填报人'?: unknown;
+      'PLM任务'?: unknown;
+      '完成百分比'?: number;
+      '工时（小时）'?: number;
       '日报ID'?: {
         text: string;
         originalValue?: {
@@ -878,42 +655,24 @@ export type WorkDailyReportBitableSyncV2SearchrecordsOutput = {
         }[];
       };
       '任务来源'?: string;
-      '开始时间'?: unknown;
-      '结束时间'?: unknown;
-      '当日计划'?: unknown;
-      '所属部门'?: string;
       '项目编号'?: unknown;
-      'PLM任务'?: unknown;
-      '工时（小时）'?: number;
-      '出图数量'?: number;
-      '日报内容'?: unknown;
+      '项目阶段'?: unknown;
+      '开始时间'?: unknown;
+      '当日完成情况'?: unknown;
+      '需协助事项'?: unknown;
+      '完成情况判定'?: string;
       '填报日期'?: number;
       '项目名称/任务名称'?: unknown;
-      '完成百分比'?: number;
+      '结束时间'?: unknown;
+      '当日计划'?: unknown;
+      '日报内容'?: unknown;
+      '出图数量'?: number;
+      '所属部门'?: string;
+      '输出内容'?: unknown;
       '输出文件数量'?: unknown;
+      '偏差原因与问题'?: unknown;
+      '填报人'?: unknown;
     };
   }[];
-  hasMore: boolean;
-  pageToken?: string;
-};
-
-export type WorkDailyReportBitableSyncV2UpdaterecordcommentInput = {
-  recordID: string;
-  commentID: string;
-  replyID: string;
-  content: unknown[];
-};
-
-/**
- * const input: WorkDailyReportBitableSyncV2UpdaterecordcommentInput = { recordID, commentID, replyID, ... };
- * capabilityClient.load('work_daily_report_bitable_sync_v2').call<WorkDailyReportBitableSyncV2UpdaterecordcommentOutput>('updateRecordComment', input)
- * 直接返回此类型，无 .data 包装，直接解构使用：
- * const { commentID, replyID } = result;
- * 返回值形如：
- *   {"commentID":"示例文本","replyID":"示例文本"}
- */
-export type WorkDailyReportBitableSyncV2UpdaterecordcommentOutput = {
-  commentID: string;
-  replyID: string;
 };
 // ---- end:work_daily_report_bitable_sync_v2 ----

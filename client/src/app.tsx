@@ -13,6 +13,7 @@ import MonthlyReportDetailPage from './pages/monthly-report/detail';
 import WeeklyDepartmentDetailPage from './pages/weekly-report/department-detail';
 import MonthlyDepartmentDetailPage from './pages/monthly-report/department-detail';
 import StatsPage from './pages/stats';
+import ManagerDashboardPage from './pages/manager-dashboard';
 import ReportArchivePage from './pages/report-archive';
 import TaskPoolPage from './pages/task-pool';
 
@@ -32,6 +33,7 @@ const RoutesComponent = () => {
         <Route path="monthly-report/department/:id" element={<MonthlyDepartmentDetailPage />} />
         <Route path="monthly-report/:id" element={<MonthlyReportDetailPage />} />
         <Route path="stats" element={<StatsPage />} />
+        <Route path="manager-dashboard" element={<ManagerDashboardPage />} />
         <Route path="report-archive" element={<ReportArchivePage />} />
         <Route path="task-pool" element={<TaskPoolPage />} />
       </Route>

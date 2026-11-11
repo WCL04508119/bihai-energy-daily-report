@@ -117,6 +117,42 @@ export const fileAttachmentArray = customType<{
   },
 });
 
+export const feishuUserTokens = pgTable("feishu_user_tokens", {
+  userId: varchar("user_id", { length: 64 }).primaryKey(),
+  openId: varchar("open_id", { length: 64 }),
+  accessToken: text("access_token").notNull(),
+  refreshToken: text("refresh_token").notNull(),
+  expiresAt: customTimestamptz("expires_at", { precision: 3 }).notNull(),
+  scope: text("scope"),
+  // System field: Creation time (auto-filled, do not modify)
+  createdAt: customTimestamptz("_created_at", { precision: 3 }).notNull().default(sql`CURRENT_TIMESTAMP`),
+  // System field: Creator (auto-filled, do not modify)
+  createdBy: userProfile("_created_by").default(sql`CASE
+    WHEN (current_setting('app.user_id'::text, true) = ''::text) THEN NULL`),
+  // System field: Update time (auto-filled, do not modify)
+  updatedAt: customTimestamptz("_updated_at", { precision: 3 }).notNull().default(sql`CURRENT_TIMESTAMP`),
+  // System field: Updater (auto-filled, do not modify)
+  updatedBy: userProfile("_updated_by").default(sql`CASE
+    WHEN (current_setting('app.user_id'::text, true) = ''::text) THEN NULL`),
+});
+
+export const userDepartments = pgTable("user_departments", {
+  userId: varchar("user_id", { length: 64 }).primaryKey(),
+  department: varchar("department", { length: 50 }).notNull(),
+  source: varchar("source", { length: 20 }).notNull().default('feishu_contacts'),
+  syncedAt: customTimestamptz("synced_at", { precision: 3 }).notNull().default(sql`CURRENT_TIMESTAMP`),
+  // System field: Creation time (auto-filled, do not modify)
+  createdAt: customTimestamptz("_created_at", { precision: 3 }).notNull().default(sql`CURRENT_TIMESTAMP`),
+  // System field: Creator (auto-filled, do not modify)
+  createdBy: userProfile("_created_by").default(sql`CASE
+    WHEN (current_setting('app.user_id'::text, true) = ''::text) THEN NULL`),
+  // System field: Update time (auto-filled, do not modify)
+  updatedAt: customTimestamptz("_updated_at", { precision: 3 }).notNull().default(sql`CURRENT_TIMESTAMP`),
+  // System field: Updater (auto-filled, do not modify)
+  updatedBy: userProfile("_updated_by").default(sql`CASE
+    WHEN (current_setting('app.user_id'::text, true) = ''::text) THEN NULL`),
+});
+
 export const taskItems = pgTable("task_items", {
   id: uuid("id").primaryKey().defaultRandom(),
   assignee: userProfile("assignee").notNull(),
@@ -326,6 +362,7 @@ export const dailyReports = pgTable("daily_reports", {
    * @type { projectNames: string[]; projectCodes: string[]; completion?: string }[]
    */
   completionRows: jsonb("completion_rows"),
+  taskSources: text("task_sources").array(),
   // System field: Creation time (auto-filled, do not modify)
   createdAt: customTimestamptz("_created_at", { precision: 3 }).notNull().default(sql`CURRENT_TIMESTAMP`),
   // System field: Creator (auto-filled, do not modify)
@@ -345,8 +382,10 @@ export const dailyReports = pgTable("daily_reports", {
 export const dailyReportsTable = dailyReports;
 export const departmentMonthlyReportsTable = departmentMonthlyReports;
 export const departmentWeeklyReportsTable = departmentWeeklyReports;
+export const feishuUserTokensTable = feishuUserTokens;
 export const monthlyReportsTable = monthlyReports;
 export const reportDocumentsTable = reportDocuments;
 export const scheduledReportSendsTable = scheduledReportSends;
 export const taskItemsTable = taskItems;
+export const userDepartmentsTable = userDepartments;
 export const weeklyReportsTable = weeklyReports;

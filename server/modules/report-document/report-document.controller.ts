@@ -15,6 +15,7 @@ import type {
   ReportDocumentListResponse,
 } from '@shared/api.interface';
 import { ReportDocumentService } from './report-document.service';
+import { DataScopeService } from '../data-scope/data-scope.service';
 import {
   ExportReportDocumentDto,
   ReportDocumentListQueryDto,
@@ -23,7 +24,10 @@ import {
 @Controller('api/report-documents')
 @NeedLogin()
 export class ReportDocumentController {
-  constructor(private readonly reportDocumentService: ReportDocumentService) {}
+  constructor(
+    private readonly reportDocumentService: ReportDocumentService,
+    private readonly dataScope: DataScopeService,
+  ) {}
 
   @Post('export')
   export(@Body() dto: ExportReportDocumentDto): Promise<ReportDocument> {
@@ -31,10 +35,18 @@ export class ReportDocumentController {
   }
 
   @Get()
-  list(
+  async list(
+    @Req() req: Request,
     @Query() query: ReportDocumentListQueryDto,
   ): Promise<ReportDocumentListResponse> {
-    return this.reportDocumentService.list(query);
+    const scope = await this.dataScope.resolve(
+      req.userContext.roles,
+      req.userContext.userId,
+    );
+    return this.reportDocumentService.list(query, {
+      userId: req.userContext.userId,
+      canViewAll: scope.kind === 'all',
+    });
   }
 
   @Delete(':id')

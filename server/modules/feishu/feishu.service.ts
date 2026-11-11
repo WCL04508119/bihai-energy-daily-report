@@ -25,4 +25,8 @@ export class FeishuService {
   getAppId(): string {
     return FEISHU_APP_ID;
   }
+
+  getAppSecret(): string {
+    return FEISHU_APP_SECRET;
+  }
 }

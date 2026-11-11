@@ -1,6 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Navigate } from 'react-router-dom';
 import { Plus, Pencil, Trash2, ListChecks, Search, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -27,13 +26,18 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { ROLE_SUBJECT, useAuth } from '@lark-apaas/client-toolkit/auth';
+import { useDataScope } from '@/hooks/use-data-scope';
 import { taskPoolApi } from '@/api';
 import { getApiErrorMessage } from '@/lib/api-error';
-import type { TaskItem } from '@shared/api.interface';
+import { resolveAppUrl } from '@lark-apaas/client-toolkit/utils/resolveAppUrl';
+import type { TaskItem, TaskPoolSyncResponse } from '@shared/api.interface';
+
+const TASK_POOL_PATH = '/task-pool';
+const OAUTH_STATE_KEY = 'bss:feishu-oauth-state';
+const OAUTH_REDIRECT_KEY = 'bss:feishu-oauth-redirect';
 
 const TaskPoolPage = () => {
-  const { ability, isLoading: authLoading } = useAuth();
+  const { data: scope, isLoading: scopeLoading } = useDataScope();
   const queryClient = useQueryClient();
 
   const [newAssigneeId, setNewAssigneeId] = useState('');
@@ -49,8 +53,23 @@ const TaskPoolPage = () => {
     queryFn: () => taskPoolApi.getTaskPool(filterAssigneeId || undefined),
   });
 
+  const { data: authStatus } = useQuery({
+    queryKey: ['feishu-auth-status'],
+    queryFn: () => taskPoolApi.getFeishuAuthStatus(),
+    staleTime: 60_000,
+  });
+
   const invalidate = (): void => {
     void queryClient.invalidateQueries({ queryKey: ['task-pool'] });
+  };
+
+  const startAuthorization = async (): Promise<void> => {
+    const state: string = crypto.randomUUID();
+    const redirectUri: string = resolveAppUrl(TASK_POOL_PATH);
+    window.sessionStorage.setItem(OAUTH_STATE_KEY, state);
+    window.sessionStorage.setItem(OAUTH_REDIRECT_KEY, redirectUri);
+    const response = await taskPoolApi.getFeishuAuthUrl(redirectUri, state);
+    window.location.assign(response.url);
   };
 
   const addMutation = useMutation({
@@ -93,22 +112,61 @@ const TaskPoolPage = () => {
   });
 
   const syncMutation = useMutation({
-    mutationFn: () => taskPoolApi.syncFeishuTasks(),
+    mutationFn: async (): Promise<TaskPoolSyncResponse | null> => {
+      const result: TaskPoolSyncResponse = await taskPoolApi.syncFeishuTasks();
+      if (result.needAuth) {
+        await startAuthorization();
+        return null;
+      }
+      return result;
+    },
     retry: false,
-    onSuccess: (result) => {
+    onSuccess: (result: TaskPoolSyncResponse | null) => {
+      if (!result) return;
+      const scopeText: string =
+        result.source === 'personal' ? '你本人名下的飞书任务' : '共享清单任务';
       toast.success(
-        `飞书任务同步完成：新增 ${result.added}，更新 ${result.updated}，无负责人 ${result.skippedNoAssignee}，负责人转换失败 ${result.convertedFailed}`,
+        `已同步${scopeText}：共 ${result.total} 条，新增 ${result.added}，更新 ${result.updated}`,
       );
       invalidate();
+      void queryClient.invalidateQueries({ queryKey: ['feishu-auth-status'] });
     },
     onError: (error) =>
       toast.error(getApiErrorMessage(error, '飞书任务同步失败，请稍后重试')),
   });
 
-  if (authLoading) return <div className="text-slate-500">加载中...</div>;
-  if (!ability.can('dept_director', ROLE_SUBJECT)) {
-    return <Navigate to="/daily-report" replace />;
-  }
+  const syncTriggerRef = useRef<() => void>(() => {});
+  useEffect(() => {
+    syncTriggerRef.current = (): void => syncMutation.mutate();
+  }, [syncMutation]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const code: string | null = params.get('code');
+    if (!code) return;
+    const state: string | null = params.get('state');
+    const expected: string | null = window.sessionStorage.getItem(OAUTH_STATE_KEY);
+    const redirectUri: string =
+      window.sessionStorage.getItem(OAUTH_REDIRECT_KEY) ?? resolveAppUrl(TASK_POOL_PATH);
+    window.history.replaceState({}, '', window.location.pathname);
+    if (expected && state !== expected) {
+      toast.error('飞书授权校验未通过，请重新点击同步');
+      return;
+    }
+    taskPoolApi
+      .bindFeishuAuth({ code, redirectUri })
+      .then(() => {
+        toast.success('飞书任务已连接，正在同步...');
+        void queryClient.invalidateQueries({ queryKey: ['feishu-auth-status'] });
+        syncTriggerRef.current();
+      })
+      .catch((error: unknown) =>
+        toast.error(getApiErrorMessage(error, '飞书授权失败，请稍后重试')),
+      );
+  }, [queryClient]);
+
+  if (scopeLoading) return <div className="text-slate-500">加载中...</div>;
+  const canManage: boolean = scope?.features?.canManageTaskPool === true;
 
   const addTask = (): void => {
     if (!newAssigneeId) {
@@ -139,46 +197,58 @@ const TaskPoolPage = () => {
     <div className="space-y-5">
       <EnergyHero
         title="任务池管理"
-        description="预置员工可选的「飞书任务」清单，作为日报任务来源为飞书的选项"
+        description={
+          canManage
+            ? '预置员工可选的「飞书任务」清单，作为日报任务来源为飞书的选项'
+            : '查看任务池中分配给您的飞书任务；如需新增任务请联系部门负责人'
+        }
       />
 
-      <Card className="animate-fade-up stagger-1">
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-lg font-semibold text-slate-800">
-            <Plus className="size-4 text-primary" />
-            新增任务
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-wrap items-end gap-4">
-          <div className="min-w-[220px] flex-1 space-y-1.5">
-            <label className="text-xs font-medium text-slate-500">归属员工</label>
-            <UserSelect
-              multiple={false}
-              value={newAssigneeId}
-              onChange={setNewAssigneeId}
-              placeholder="搜索并选择员工"
-            />
-          </div>
-          <div className="min-w-[240px] flex-1 space-y-1.5">
-            <label className="text-xs font-medium text-slate-500">任务名称</label>
-            <Input
-              value={newTitle}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                setNewTitle(e.target.value)
-              }
-              placeholder="如：完成氢能装置工艺方案设计"
-            />
-          </div>
-          <Button
-            className="gap-1.5"
-            onClick={addTask}
-            disabled={addMutation.isPending}
-          >
-            <Plus className="size-4" />
-            {addMutation.isPending ? '添加中...' : '添加'}
-          </Button>
-        </CardContent>
-      </Card>
+      <p className="text-xs text-slate-500">
+        {authStatus?.connected
+          ? '已连接飞书任务：点击「同步飞书任务」即可抓取你本人名下的未完成任务。'
+          : '首次同步需授权飞书任务（只需一次），点击「同步飞书任务」按提示完成授权。'}
+      </p>
+
+      {canManage ? (
+        <Card className="animate-fade-up stagger-1">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-lg font-semibold text-slate-800">
+              <Plus className="size-4 text-primary" />
+              新增任务
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-wrap items-end gap-4">
+            <div className="min-w-[220px] flex-1 space-y-1.5">
+              <label className="text-xs font-medium text-slate-500">归属员工</label>
+              <UserSelect
+                multiple={false}
+                value={newAssigneeId}
+                onChange={setNewAssigneeId}
+                placeholder="搜索并选择员工"
+              />
+            </div>
+            <div className="min-w-[240px] flex-1 space-y-1.5">
+              <label className="text-xs font-medium text-slate-500">任务名称</label>
+              <Input
+                value={newTitle}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  setNewTitle(e.target.value)
+                }
+                placeholder="如：完成氢能装置工艺方案设计"
+              />
+            </div>
+            <Button
+              className="gap-1.5"
+              onClick={addTask}
+              disabled={addMutation.isPending}
+            >
+              <Plus className="size-4" />
+              {addMutation.isPending ? '添加中...' : '添加'}
+            </Button>
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Card className="animate-fade-up stagger-2">
         <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3 pb-3">
@@ -230,30 +300,36 @@ const TaskPoolPage = () => {
                     </div>
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      aria-label={`编辑 ${item.title}`}
-                      onClick={() => openEdit(item)}
-                    >
-                      <Pencil className="size-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      aria-label={`删除 ${item.title}`}
-                      className="text-rose-500 hover:bg-rose-50 hover:text-rose-600"
-                      onClick={() => setDeleting(item)}
-                    >
-                      <Trash2 className="size-4" />
-                    </Button>
+                    {canManage ? (
+                      <>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          aria-label={`编辑 ${item.title}`}
+                          onClick={() => openEdit(item)}
+                        >
+                          <Pencil className="size-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          aria-label={`删除 ${item.title}`}
+                          className="text-rose-500 hover:bg-rose-50 hover:text-rose-600"
+                          onClick={() => setDeleting(item)}
+                        >
+                          <Trash2 className="size-4" />
+                        </Button>
+                      </>
+                    ) : null}
                   </div>
                 </li>
               ))}
             </ul>
           ) : (
             <div className="py-10 text-center text-slate-400">
-              暂无任务，请先在“新增任务”中为员工预置任务
+              {canManage
+                ? '暂无任务，请先在“新增任务”中为员工预置任务'
+                : '暂无分配给您的任务'}
             </div>
           )}
         </CardContent>

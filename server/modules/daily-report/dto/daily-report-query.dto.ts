@@ -30,4 +30,8 @@ export class DailyReportQueryDto {
   @IsOptional()
   @IsString()
   reporterId?: string;
+
+  @IsOptional()
+  @IsString()
+  keyword?: string;
 }

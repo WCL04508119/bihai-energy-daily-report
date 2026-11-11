@@ -95,8 +95,14 @@ const ScheduledSendsCard: React.FC = () => {
                 <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
                   <span>填报日期 {item.report.reportDate}</span>
                   <span className="text-slate-300">|</span>
-                  <span>接收人</span>
-                  <UserDisplay value={item.recipientIds} size="small" />
+                  <span>通知对象</span>
+                  {item.recipientIds.length > 0 ? (
+                    <UserDisplay value={item.recipientIds} size="small" />
+                  ) : (
+                    <span className="text-slate-400">
+                      未填汇报人/抄送人，到点仅提交
+                    </span>
+                  )}
                 </div>
                 {item.status === 'failed' && item.errorMsg && (
                   <p className="flex items-center gap-1.5 text-xs text-rose-600">
@@ -126,7 +132,7 @@ const ScheduledSendsCard: React.FC = () => {
                     <AlertDialogHeader>
                       <AlertDialogTitle>确认取消定时发送</AlertDialogTitle>
                       <AlertDialogDescription>
-                        取消后这份日报不会自动提交，也不会发送给接收人，确定要取消吗？
+                        取消后这份日报不会自动提交，也不会通知汇报人与抄送人，确定要取消吗？
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>

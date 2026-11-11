@@ -6,6 +6,7 @@ import {
   AlignLeft,
   ArrowLeft,
   ClipboardList,
+  CopyPlus,
   FileText,
   Pencil,
   Settings2,
@@ -155,6 +156,17 @@ const DailyReportDetailPage = () => {
                   <ArrowLeft className="size-5" />
                 </Link>
               </Button>
+              {report.canEdit ? (
+                <>
+              {report.reportDate !==
+              new Date().toISOString().split('T')[0] ? (
+                <Button variant="outline" asChild>
+                  <Link to={`/daily-report/new?from=${report.id}`}>
+                    <CopyPlus className="size-4" />
+                    以此为底稿写今日
+                  </Link>
+                </Button>
+              ) : null}
               <Button variant="outline" asChild>
                 <Link to={`/daily-report/${id}/edit`}>
                   <Pencil className="size-4" />
@@ -189,6 +201,8 @@ const DailyReportDetailPage = () => {
                   </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
+                </>
+              ) : null}
             </>
           }
         />
@@ -209,7 +223,14 @@ const DailyReportDetailPage = () => {
 
       <SectionCard icon={ClipboardList} title="任务信息" step={2}>
         <div className="grid grid-cols-1 gap-x-8 md:grid-cols-2">
-          <FieldRow label="任务来源" value={report.taskSource} />
+          <FieldRow
+            label="任务来源"
+            value={
+              report.taskSources && report.taskSources.length > 0
+                ? report.taskSources.join('、')
+                : report.taskSource
+            }
+          />
           <FieldRow label="任务名称" value={report.taskName} />
         </div>
       </SectionCard>
@@ -223,16 +244,28 @@ const DailyReportDetailPage = () => {
                   key={index}
                   className="rounded-lg border border-slate-100 bg-slate-50/40 p-3"
                 >
-                  {report.taskSource !== '部门日常' && (
-                    <p className="mb-1 text-xs font-semibold text-slate-800">
-                      {(row.projectNames ?? []).length
-                        ? row.projectNames.join('、')
-                        : '未指定项目'}
-                    </p>
+                  {((row.projectNames ?? []).length > 0 || row.task) && (
+                    <div className="mb-1 space-y-0.5">
+                      {(row.projectNames ?? []).length > 0 ? (
+                        <p className="text-xs font-semibold text-slate-800">
+                          {row.projectNames.join('、')}
+                        </p>
+                      ) : null}
+                      {row.task ? (
+                        <p className="whitespace-pre-wrap text-xs text-slate-600">
+                          任务：{row.task}
+                        </p>
+                      ) : null}
+                    </div>
                   )}
                   <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-700">
                     {row.completion || '—'}
                   </p>
+                  {typeof row.workHours === 'string' && row.workHours ? (
+                    <p className="mt-1.5 text-xs text-slate-500">
+                      工时：{row.workHours}
+                    </p>
+                  ) : null}
                 </div>
               ))}
             </div>

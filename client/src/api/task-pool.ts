@@ -6,6 +6,9 @@ import type {
   UpdateTaskItemRequest,
   DeleteResponse,
   TaskPoolSyncResponse,
+  FeishuAuthBindRequest,
+  FeishuAuthStatusResponse,
+  FeishuAuthUrlResponse,
 } from '@shared/api.interface';
 
 export const getMyTaskPool = (): Promise<TaskItemListResponse> =>
@@ -36,3 +39,23 @@ export const syncFeishuTasks = (): Promise<TaskPoolSyncResponse> =>
   axiosForBackend
     .post('/api/feishu-task-sync/sync')
     .then((r: { data: TaskPoolSyncResponse }) => r.data);
+
+export const getFeishuAuthUrl = (
+  redirectUri: string,
+  state: string,
+): Promise<FeishuAuthUrlResponse> =>
+  axiosForBackend
+    .get('/api/feishu-task-sync/auth-url', { params: { redirectUri, state } })
+    .then((r: { data: FeishuAuthUrlResponse }) => r.data);
+
+export const bindFeishuAuth = (
+  body: FeishuAuthBindRequest,
+): Promise<FeishuAuthStatusResponse> =>
+  axiosForBackend
+    .post('/api/feishu-task-sync/oauth-bind', body)
+    .then((r: { data: FeishuAuthStatusResponse }) => r.data);
+
+export const getFeishuAuthStatus = (): Promise<FeishuAuthStatusResponse> =>
+  axiosForBackend
+    .get('/api/feishu-task-sync/auth-status')
+    .then((r: { data: FeishuAuthStatusResponse }) => r.data);

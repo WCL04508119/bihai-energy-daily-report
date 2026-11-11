@@ -319,7 +319,7 @@ export function buildTemplatePrompt(
 要求：
 1. summaryPoints 为${periodText}的经验、教训或改进建议，1-3 条，每条 40 字以内，内容必须来自日报素材。
 2. nextPlanRows 为${nextText}计划，2-5 条，必须基于日报中的未完成事项与在办事项推进，禁止编造日报中没有的项目编号与任务。
-3. taskSource 只能取「部门日常、项目任务、临时需求、会议安排、跨部门协作」之一。
+3. taskSource 只能取「部门日常、项目任务、投标项目、临时需求、会议安排、跨部门协作、其他任务、行政工作、飞书任务」之一。
 4. keyTask 为计划事项名称，deliverable 为交付物，dueDate 使用 YYYY-MM-DD 格式且限定在 ${dueStart} 至 ${dueEnd} 之间。
 5. projectCode 沿用日报中的项目编号，日报未填写时留空字符串；resourcesNeeded 可为空字符串。
 

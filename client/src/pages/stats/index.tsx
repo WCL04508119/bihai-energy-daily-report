@@ -1,4 +1,6 @@
 import { useMemo, useState } from 'react';
+import { Navigate } from 'react-router-dom';
+import { useDataScope } from '@/hooks/use-data-scope';
 import { useQuery } from '@tanstack/react-query';
 import {
   BarChart3,
@@ -29,6 +31,7 @@ import {
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import EnergyHero from '@/components/brand/EnergyHero';
+import AttendanceDayMark from '@/components/stats/AttendanceDayMark';
 import { statsApi } from '@/api';
 import aiAvatarUrl from '@/assets/ai-assistant.png';
 import { DEPARTMENTS, type DepartmentStats } from '@shared/api.interface';
@@ -57,6 +60,7 @@ const STAGGER_CLASSES = ['', 'stagger-1', 'stagger-2', 'stagger-3'];
 const ALL_DEPARTMENTS = 'all';
 
 const StatsPage = () => {
+  const { data: scope, isLoading: scopeLoading } = useDataScope();
   const defaultRange = getDefaultRange();
   const [startDate, setStartDate] = useState(defaultRange.start);
   const [endDate, setEndDate] = useState(defaultRange.end);
@@ -144,6 +148,11 @@ const StatsPage = () => {
       suffix: '人',
     },
   ];
+
+  if (scopeLoading) return <div className="text-slate-500">加载中...</div>;
+  if (!scope?.features?.canViewStats) {
+    return <Navigate to="/daily-report" replace />;
+  }
 
   return (
     <div className="space-y-5">
@@ -374,6 +383,9 @@ const StatsPage = () => {
                   <TableHead className="w-24 font-semibold text-slate-600">
                     缺交天数
                   </TableHead>
+                  <TableHead className="w-20 font-semibold text-slate-600">
+                    补交
+                  </TableHead>
                   {workingDays.map((d) => (
                     <TableHead
                       key={d}
@@ -388,7 +400,7 @@ const StatsPage = () => {
                 {attLoading ? (
                   <TableRow>
                     <TableCell
-                      colSpan={workingDays.length + 3}
+                      colSpan={workingDays.length + 4}
                       className="py-16 text-center text-sm text-slate-500"
                     >
                       正在加载出勤数据...
@@ -413,15 +425,21 @@ const StatsPage = () => {
                       >
                         {emp.missingDays}
                       </TableCell>
+                      <TableCell className="tabular-nums">
+                        {emp.supplementCount > 0 ? (
+                          <span className="font-medium text-amber-600">
+                            {emp.supplementCount}
+                          </span>
+                        ) : (
+                          <span className="text-slate-300">0</span>
+                        )}
+                      </TableCell>
                       {workingDays.map((d) => (
                         <TableCell key={d} className="px-1 text-center">
-                          <span
-                            className={
-                              emp.days[d] ? 'text-emerald-600' : 'text-rose-600'
-                            }
-                          >
-                            {emp.days[d] ? '✓' : '✗'}
-                          </span>
+                          <AttendanceDayMark
+                            cell={emp.days[d]}
+                            supplementDates={emp.supplementOn?.[d]}
+                          />
                         </TableCell>
                       ))}
                     </TableRow>
@@ -429,7 +447,7 @@ const StatsPage = () => {
                 ) : (
                   <TableRow>
                     <TableCell
-                      colSpan={workingDays.length + 3}
+                      colSpan={workingDays.length + 4}
                       className="py-14 text-center text-sm text-slate-500"
                     >
                       暂无该月的出勤核对数据
@@ -439,9 +457,32 @@ const StatsPage = () => {
               </TableBody>
             </Table>
           </div>
-          <p className="px-5 pb-4 text-xs text-slate-400">
-            工作日口径：周一至周五（不含周末），法定节假日暂按工作日统计；人员名单＝曾提交过日报的员工。核对表展示与下载均为全公司全员，不受上方部门筛选影响。
-          </p>
+          <div className="space-y-2 px-5 pb-4">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
+              <span className="inline-flex items-center gap-1">
+                <span className="text-emerald-600">✓</span>当日提交
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <span className="font-semibold text-amber-600">✓</span>
+                <span className="rounded bg-amber-100 px-1 text-[9px] font-medium text-amber-700">
+                  补
+                </span>
+                补交（悬停看提交日期）
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <span className="rounded-full bg-amber-500 px-1 text-[9px] font-bold text-white">
+                  n
+                </span>
+                该日补交了往日 n 份日报
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <span className="text-rose-600">✗</span>未提交
+              </span>
+            </div>
+            <p className="text-xs text-slate-400">
+              补交判定：日报的填报日期早于实际提交日期（如 10 号早上交 9 号的日报），仍计入 9 号；当月补交共 {attendance?.supplementTotal ?? 0} 条。工作日口径：周一至周五（不含周末），法定节假日暂按工作日统计；人员名单＝曾提交过日报的员工。核对表展示与下载均为全公司全员，不受上方部门筛选影响。
+            </p>
+          </div>
         </CardContent>
       </Card>
     </div>

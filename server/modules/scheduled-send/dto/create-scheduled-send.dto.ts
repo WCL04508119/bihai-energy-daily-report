@@ -1,6 +1,6 @@
 import {
-  ArrayMinSize,
   IsArray,
+  IsOptional,
   IsString,
   Matches,
   ValidateNested,
@@ -27,8 +27,8 @@ export class CreateScheduledSendDto implements CreateScheduledSendRequest {
   })
   sendTime!: string;
 
+  @IsOptional()
   @IsArray()
-  @ArrayMinSize(1, { message: '请至少选择一位接收人' })
   @IsString({ each: true })
-  recipientIds!: string[];
+  recipientIds?: string[];
 }

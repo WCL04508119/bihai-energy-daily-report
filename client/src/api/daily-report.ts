@@ -5,6 +5,7 @@ import type {
   DailyReportListResponse,
   CreateDailyReportRequest,
   UpdateDailyReportRequest,
+  RecipientDefaults,
 } from '@shared/api.interface';
 
 export function getDailyReports(
@@ -18,6 +19,22 @@ export function getDailyReports(
 export function getDailyReport(id: string): Promise<DailyReport> {
   return axiosForBackend
     .get<DailyReport>(`/api/daily-reports/${id}`)
+    .then((r) => r.data);
+}
+
+export function getLatestDailyReport(): Promise<DailyReport | null> {
+  return axiosForBackend
+    .get<DailyReport | null>('/api/daily-reports/latest-mine')
+    .then((r) => r.data);
+}
+
+export function getRecipientDefaults(
+  department?: string,
+): Promise<RecipientDefaults> {
+  return axiosForBackend
+    .get<RecipientDefaults>('/api/daily-reports/recipient-defaults', {
+      params: { department },
+    })
     .then((r) => r.data);
 }
 

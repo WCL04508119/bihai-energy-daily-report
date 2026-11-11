@@ -7,6 +7,7 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import {
+  COMPLETION_ROW_KINDS,
   DEPARTMENTS,
   TASK_SOURCES,
 } from '@shared/api.interface';
@@ -16,6 +17,10 @@ import type {
 } from '@shared/api.interface';
 
 export class DailyCompletionRowDto implements DailyCompletionRow {
+  @IsOptional()
+  @IsIn(COMPLETION_ROW_KINDS)
+  kind?: 'routine' | 'project';
+
   @IsArray()
   @IsString({ each: true })
   projectNames!: string[];
@@ -26,7 +31,15 @@ export class DailyCompletionRowDto implements DailyCompletionRow {
 
   @IsOptional()
   @IsString()
+  task?: string;
+
+  @IsOptional()
+  @IsString()
   completion?: string;
+
+  @IsOptional()
+  @IsString()
+  workHours?: string;
 }
 
 export class CreateDailyReportDto implements CreateDailyReportRequest {
@@ -55,10 +68,18 @@ export class CreateDailyReportDto implements CreateDailyReportRequest {
   taskSource!:
     | '部门日常'
     | '项目任务'
+    | '投标项目'
     | '临时需求'
     | '会议安排'
     | '跨部门协作'
+    | '其他任务'
+    | '行政工作'
     | '飞书任务';
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  taskSources?: string[];
 
   @IsString()
   taskName!: string;

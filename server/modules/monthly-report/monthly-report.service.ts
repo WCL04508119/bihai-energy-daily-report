@@ -4,13 +4,15 @@ import {
   Logger,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import {
   DRIZZLE_DATABASE,
   type PostgresJsDatabase,
 } from '@lark-apaas/fullstack-nestjs-core';
-import { eq, and, desc, gte, lte, count, sql } from 'drizzle-orm';
+import { eq, and, desc, gte, lte, count, sql, inArray } from 'drizzle-orm';
 import { monthlyReports, dailyReports } from '../../database/schema';
+import type { DataScope } from '../data-scope/data-scope.service';
 import type {
   MonthlyReport,
   MonthlyReportListResponse,
@@ -62,12 +64,20 @@ export class MonthlyReportService {
 
   async findAll(
     query: MonthlyReportQueryDto,
+    scope: DataScope,
   ): Promise<MonthlyReportListResponse> {
     const page = query.page ?? 1;
     const pageSize = query.pageSize ?? 20;
     const offset = (page - 1) * pageSize;
 
     const conditions = [];
+    if (scope.kind === 'self') {
+      conditions.push(
+        sql`(${monthlyReports.reporterId}).user_id = ${scope.userId}`,
+      );
+    } else if (scope.kind === 'department') {
+      conditions.push(inArray(monthlyReports.department, scope.departments));
+    }
     if (query.department) {
       conditions.push(eq(monthlyReports.department, query.department));
     }
@@ -105,7 +115,7 @@ export class MonthlyReportService {
     return { items, total, page, pageSize };
   }
 
-  async findOne(id: string): Promise<MonthlyReport> {
+  async findOne(id: string, scope: DataScope): Promise<MonthlyReport> {
     const result = await this.db
       .select()
       .from(monthlyReports)
@@ -116,7 +126,17 @@ export class MonthlyReportService {
       throw new NotFoundException('月报不存在');
     }
 
-    return mapMonthlyRow(result[0]);
+    const monthly = mapMonthlyRow(result[0]);
+    if (scope.kind !== 'all' && monthly.reporterId !== scope.userId) {
+      if (
+        scope.kind !== 'department' ||
+        !scope.departments.includes(monthly.department)
+      ) {
+        throw new ForbiddenException('无权查看该月报');
+      }
+    }
+
+    return monthly;
   }
 
   async generate(
@@ -201,6 +221,18 @@ export class MonthlyReportService {
     const parsed = parseMonthlyTemplateData(templateData);
     if (!parsed) {
       throw new BadRequestException('模板数据格式不正确');
+    }
+
+    const existing = await this.db
+      .select({ reporterId: monthlyReports.reporterId })
+      .from(monthlyReports)
+      .where(eq(monthlyReports.id, id))
+      .limit(1);
+    if (existing.length === 0) {
+      throw new NotFoundException('月报不存在');
+    }
+    if (existing[0].reporterId !== userId) {
+      throw new ForbiddenException('只能修改本人的月报');
     }
 
     const updated = await this.db

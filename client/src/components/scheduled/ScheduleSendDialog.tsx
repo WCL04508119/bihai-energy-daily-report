@@ -19,7 +19,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { UserSelect } from '@/components/business-ui/user-select';
 import { scheduledSendApi } from '@/api';
 import { getApiErrorMessage } from '@/lib/api-error';
 import type { CreateDailyReportRequest } from '@shared/api.interface';
@@ -58,7 +57,6 @@ const ScheduleSendDialog: React.FC<ScheduleSendDialogProps> = ({
   onScheduled,
 }) => {
   const [sendTime, setSendTime] = useState<string | undefined>(undefined);
-  const [recipientIds, setRecipientIds] = useState<string[]>([]);
   const slots = buildTodaySlots();
 
   const createMutation = useMutation({
@@ -67,12 +65,11 @@ const ScheduleSendDialog: React.FC<ScheduleSendDialogProps> = ({
         report,
         sendDate: getTodayInShanghai(),
         sendTime: sendTime ?? '',
-        recipientIds,
       }),
     retry: false,
     onSuccess: () => {
       toast.success(
-        `已设置定时发送，今天 ${sendTime ?? ''} 将自动提交日报并通知接收人`,
+        `已设置定时发送，今天 ${sendTime ?? ''} 将自动提交日报并通知汇报人与抄送人`,
       );
       onScheduled();
     },
@@ -84,10 +81,6 @@ const ScheduleSendDialog: React.FC<ScheduleSendDialogProps> = ({
   const confirm = () => {
     if (!sendTime) {
       toast.error('请选择发送时间');
-      return;
-    }
-    if (recipientIds.length === 0) {
-      toast.error('请至少选择一位接收人');
       return;
     }
     createMutation.mutate();
@@ -104,7 +97,7 @@ const ScheduleSendDialog: React.FC<ScheduleSendDialogProps> = ({
             定时发送日报
           </DialogTitle>
           <DialogDescription>
-            到所选时间后，系统会自动把这份日报正式提交，并以飞书消息发送给所选接收人。
+            到所选时间后，系统会自动把这份日报正式提交，并通知日报中填写的汇报人与抄送人（未填写则不发送消息）。
           </DialogDescription>
         </DialogHeader>
 
@@ -133,21 +126,8 @@ const ScheduleSendDialog: React.FC<ScheduleSendDialogProps> = ({
             )}
           </div>
 
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-slate-500">
-              接收人（可选部门领导或具体同事）
-            </label>
-            <UserSelect
-              multiple
-              value={recipientIds}
-              onChange={setRecipientIds}
-              placeholder="搜索并选择接收人"
-            />
-            {recipientIds.length === 0 && (
-              <p className="text-xs text-slate-400">
-                可多选；日报内容将以飞书消息发送给所选接收人。
-              </p>
-            )}
+          <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+            接收人无需单独选择：系统按日报里填写的「汇报给谁」和「抄送给谁」发送飞书消息。建议先在表单填好这两项。
           </div>
         </div>
 
@@ -162,11 +142,7 @@ const ScheduleSendDialog: React.FC<ScheduleSendDialogProps> = ({
           <Button
             type="button"
             className="shadow-sm"
-            disabled={
-              !sendTime ||
-              recipientIds.length === 0 ||
-              createMutation.isPending
-            }
+            disabled={!sendTime || createMutation.isPending}
             onClick={confirm}
           >
             <Send className="size-4" />

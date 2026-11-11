@@ -1,6 +1,7 @@
 import { capabilityClient } from '@lark-apaas/client-toolkit';
 import { logger } from '@lark-apaas/client-toolkit/logger';
 import type { DailyReport } from '@shared/api.interface';
+import { isDepartment, isTaskSource, formatCompletionRowsProjectTask } from '@shared/api.interface';
 
 /**
  * 日报明细同步到飞书多维表格的插件实例 ID。
@@ -156,15 +157,24 @@ const buildDailyRecordFields = (
   const fields: Record<string, unknown> = {
     日报ID: report.id,
     填报日期: toTimestamp(report.reportDate),
-    所属部门: report.department,
-    任务来源: report.taskSource,
     任务名称: report.taskName,
     输出文件数量: report.outputFileCount,
   };
 
+  if (isDepartment(report.department)) {
+    fields['所属部门'] = report.department;
+  } else {
+    logger.warn('日报部门不是合法枚举，跳过「所属部门」同步', report.department);
+  }
+  if (isTaskSource(report.taskSource)) {
+    fields['任务来源'] = report.taskSource;
+  } else {
+    logger.warn('日报任务来源不是合法枚举，跳过「任务来源」同步', report.taskSource);
+  }
+
   const optionalFields: Array<[string, string | undefined]> = [
     ['填报人', optionalText(reporterName)],
-    ['项目名称/任务名称', arrayText(report.projectName)],
+    ['项目名称/任务名称', formatCompletionRowsProjectTask(report.completionRows, report.projectName)],
     ['项目编号', arrayText(report.projectCode)],
     ['PLM任务', optionalText(report.plmTask)],
     ['当日完成情况', optionalText(report.dayCompletion)],

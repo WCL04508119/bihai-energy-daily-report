@@ -42,10 +42,18 @@ export class UpdateDailyReportDto implements UpdateDailyReportRequest {
   taskSource?:
     | '部门日常'
     | '项目任务'
+    | '投标项目'
     | '临时需求'
     | '会议安排'
     | '跨部门协作'
+    | '其他任务'
+    | '行政工作'
     | '飞书任务';
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  taskSources?: string[];
 
   @IsOptional()
   @IsString()

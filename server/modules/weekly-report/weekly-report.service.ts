@@ -4,13 +4,15 @@ import {
   Logger,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import {
   DRIZZLE_DATABASE,
   type PostgresJsDatabase,
 } from '@lark-apaas/fullstack-nestjs-core';
-import { eq, and, desc, gte, lte, count, sql } from 'drizzle-orm';
+import { eq, and, desc, gte, lte, count, sql, inArray } from 'drizzle-orm';
 import { weeklyReports, dailyReports } from '../../database/schema';
+import type { DataScope } from '../data-scope/data-scope.service';
 import type {
   WeeklyReport,
   WeeklyReportListResponse,
@@ -77,12 +79,20 @@ export class WeeklyReportService {
 
   async findAll(
     query: WeeklyReportQueryDto,
+    scope: DataScope,
   ): Promise<WeeklyReportListResponse> {
     const page = query.page ?? 1;
     const pageSize = query.pageSize ?? 20;
     const offset = (page - 1) * pageSize;
 
     const conditions = [];
+    if (scope.kind === 'self') {
+      conditions.push(
+        sql`(${weeklyReports.reporterId}).user_id = ${scope.userId}`,
+      );
+    } else if (scope.kind === 'department') {
+      conditions.push(inArray(weeklyReports.department, scope.departments));
+    }
     if (query.department) {
       conditions.push(eq(weeklyReports.department, query.department));
     }
@@ -120,7 +130,7 @@ export class WeeklyReportService {
     return { items, total, page, pageSize };
   }
 
-  async findOne(id: string): Promise<WeeklyReport> {
+  async findOne(id: string, scope: DataScope): Promise<WeeklyReport> {
     const result = await this.db
       .select()
       .from(weeklyReports)
@@ -132,6 +142,7 @@ export class WeeklyReportService {
     }
 
     const weekly = mapWeeklyRow(result[0]);
+    this.assertVisible(weekly.reporterId, weekly.department, scope);
 
     // 查询关联的日报列表
     const dailyResult = await this.db
@@ -153,11 +164,26 @@ export class WeeklyReportService {
     return weekly;
   }
 
+  private assertVisible(
+    reporterId: string,
+    department: string,
+    scope: DataScope,
+  ): void {
+    if (scope.kind === 'all') return;
+    if (reporterId === scope.userId) return;
+    if (
+      scope.kind === 'department' &&
+      scope.departments.includes(department)
+    ) {
+      return;
+    }
+    throw new ForbiddenException('无权查看该周报');
+  }
+
   async generate(
     weekStart: string,
     reporterId: string,
-  ): Promise<WeeklyReport> {
-    if (!weekStart) {
+  ): Promise<WeeklyReport> {    if (!weekStart) {
       throw new BadRequestException('周开始日期不能为空');
     }
 
@@ -237,6 +263,18 @@ export class WeeklyReportService {
     const parsed = parseWeeklyTemplateData(templateData);
     if (!parsed) {
       throw new BadRequestException('模板数据格式不正确');
+    }
+
+    const existing = await this.db
+      .select({ reporterId: weeklyReports.reporterId })
+      .from(weeklyReports)
+      .where(eq(weeklyReports.id, id))
+      .limit(1);
+    if (existing.length === 0) {
+      throw new NotFoundException('周报不存在');
+    }
+    if (existing[0].reporterId !== userId) {
+      throw new ForbiddenException('只能修改本人的周报');
     }
 
     const updated = await this.db

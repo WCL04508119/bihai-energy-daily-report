@@ -5,10 +5,12 @@ import {
   FileService,
   type PostgresJsDatabase,
 } from '@lark-apaas/fullstack-nestjs-core';
-import { gte, lte, and, eq, sql } from 'drizzle-orm';
+import { gte, lte, and, eq, sql, inArray } from 'drizzle-orm';
 import * as XLSX from 'xlsx';
 import { dailyReports } from '../../database/schema';
 import type {
+  AttendanceDayCell,
+  AttendanceDayState,
   AttendanceEmployee,
   AttendanceExportResult,
   AttendanceStats,
@@ -33,13 +35,16 @@ export class StatsService {
     startDate: string,
     endDate: string,
     department?: string,
+    allowedDepartments?: string[],
   ): Promise<SubmissionStats[]> {
     const conditions = [
       gte(dailyReports.reportDate, startDate),
       lte(dailyReports.reportDate, endDate),
     ];
-    if (department) {
-      conditions.push(eq(dailyReports.department, department));
+    const departmentFilter: string[] | undefined =
+      allowedDepartments ?? (department ? [department] : undefined);
+    if (departmentFilter) {
+      conditions.push(inArray(dailyReports.department, departmentFilter));
     }
     const whereClause = and(...conditions);
 
@@ -90,7 +95,15 @@ export class StatsService {
   async getDepartmentStats(
     startDate: string,
     endDate: string,
+    allowedDepartments?: string[],
   ): Promise<DepartmentStats[]> {
+    const filters = [
+      gte(dailyReports.reportDate, startDate),
+      lte(dailyReports.reportDate, endDate),
+    ];
+    if (allowedDepartments) {
+      filters.push(inArray(dailyReports.department, allowedDepartments));
+    }
     const result = await this.db
       .select({
         department: dailyReports.department,
@@ -100,12 +113,7 @@ export class StatsService {
         totalReports: sql<number>`count(*)`.mapWith(Number).as('total_reports'),
       })
       .from(dailyReports)
-      .where(
-        and(
-          gte(dailyReports.reportDate, startDate),
-          lte(dailyReports.reportDate, endDate),
-        ),
-      )
+      .where(and(...filters))
       .groupBy(dailyReports.department)
       .orderBy(dailyReports.department);
 
@@ -133,16 +141,24 @@ export class StatsService {
    * 工作日口径：周一至周五（不含周末），无节假日历（法定节假日按工作日统计）。
    * 人员名单 = 日报表里所有曾提交过的 reporter，用于识别某月有缺交的人员。
    */
-  async getAttendance(month: string): Promise<AttendanceStats> {
+  async getAttendance(
+    month: string,
+    allowedDepartments?: string[],
+  ): Promise<AttendanceStats> {
     const validated = this.validateMonth(month);
     const workingDays = this.getWorkingDays(validated);
 
-    // 全员名单：日报表所有去重 reporter
+    // 全员名单：日报表所有去重 reporter（受限范围时仅统计可见部门）
     const reporters = await this.db
       .selectDistinct({
         userId: sql<string>`(${dailyReports.reporterId}).user_id`,
       })
-      .from(dailyReports);
+      .from(dailyReports)
+      .where(
+        allowedDepartments
+          ? inArray(dailyReports.department, allowedDepartments)
+          : undefined,
+      );
     const userIds = reporters.map((r) => r.userId);
 
     // 当月提交情况
@@ -154,38 +170,78 @@ export class StatsService {
       .select({
         date: dailyReports.reportDate,
         reporterId: dailyReports.reporterId,
+        createdAt: dailyReports.createdAt,
       })
       .from(dailyReports)
       .where(
         and(
           gte(dailyReports.reportDate, monthFirst),
           lte(dailyReports.reportDate, monthLast),
+          ...(allowedDepartments
+            ? [inArray(dailyReports.department, allowedDepartments)]
+            : []),
         ),
       );
 
-    const dayMap = new Map<string, Set<string>>();
+    const submissionMap = new Map<string, Map<string, string>>();
+    const supplementOnMap = new Map<string, Map<string, Set<string>>>();
     for (const row of rows) {
-      const d = String(row.date);
+      const d = String(row.date).slice(0, 10);
       const uid = String(row.reporterId);
-      if (!dayMap.has(d)) dayMap.set(d, new Set());
-      dayMap.get(d)!.add(uid);
+      const submittedOn: string = this.toShanghaiDay(row.createdAt);
+
+      const perDay: Map<string, string> =
+        submissionMap.get(d) ?? new Map<string, string>();
+      const previous: string | undefined = perDay.get(uid);
+      if (!previous || submittedOn < previous) perDay.set(uid, submittedOn);
+      submissionMap.set(d, perDay);
+
+      if (submittedOn > d) {
+        const bySubmitDate: Map<string, Set<string>> =
+          supplementOnMap.get(uid) ?? new Map<string, Set<string>>();
+        const dates: Set<string> = bySubmitDate.get(submittedOn) ?? new Set<string>();
+        dates.add(d);
+        bySubmitDate.set(submittedOn, dates);
+        supplementOnMap.set(uid, bySubmitDate);
+      }
     }
 
     const nameMap = await this.resolveNames(userIds);
+    let supplementTotal = 0;
     const employees: AttendanceEmployee[] = userIds.map((userId) => {
       let submittedDays = 0;
-      const days: Record<string, boolean> = {};
+      const days: Record<string, AttendanceDayCell> = {};
       for (const day of workingDays) {
-        const submitted = dayMap.get(day)?.has(userId) ?? false;
-        days[day] = submitted;
-        if (submitted) submittedDays += 1;
+        const submittedOn: string | undefined = submissionMap
+          .get(day)
+          ?.get(userId);
+        if (!submittedOn) {
+          days[day] = { state: 'missing' };
+          continue;
+        }
+        submittedDays += 1;
+        days[day] =
+          submittedOn > day
+            ? { state: 'supplement', submittedOn }
+            : { state: 'on-time' };
       }
+
+      const supplementOn: Record<string, string[]> = {};
+      let supplementCount = 0;
+      supplementOnMap.get(userId)?.forEach((dates: Set<string>, submittedOn: string) => {
+        supplementOn[submittedOn] = Array.from(dates).sort();
+        supplementCount += dates.size;
+      });
+      supplementTotal += supplementCount;
+
       return {
         userId,
         name: nameMap.get(userId) ?? userId,
         submittedDays,
         missingDays: workingDays.length - submittedDays,
+        supplementCount,
         days,
+        supplementOn,
       };
     });
     employees.sort(
@@ -193,11 +249,21 @@ export class StatsService {
         b.missingDays - a.missingDays || a.name.localeCompare(b.name, 'zh-CN'),
     );
 
-    return { month: validated, workingDays, employees };
+    return { month: validated, workingDays, supplementTotal, employees };
   }
 
-  async exportAttendance(month: string): Promise<AttendanceExportResult> {
-    const stats = await this.getAttendance(month);
+  private toShanghaiDay(value: Date | string): string {
+    const date: Date = value instanceof Date ? value : new Date(value);
+    return new Date(date.getTime() + 8 * 60 * 60 * 1000)
+      .toISOString()
+      .slice(0, 10);
+  }
+
+  async exportAttendance(
+    month: string,
+    allowedDepartments?: string[],
+  ): Promise<AttendanceExportResult> {
+    const stats = await this.getAttendance(month, allowedDepartments);
     const buffer = this.buildAttendanceXlsx(stats);
     const fileName = `日报提交核对_${stats.month}.xlsx`;
     try {
@@ -243,7 +309,16 @@ export class StatsService {
       infos.forEach((info, i) => {
         if (!info) return;
         const name = info.name?.zh_cn ?? info.name?.en_us ?? '';
-        if (name) map.set(userIds[i], name);
+        if (!name) return;
+        const fallbackId = userIds[i];
+        const resolvedId = info.miaodaUserID || fallbackId;
+        if (!resolvedId) return;
+        if (info.miaodaUserID && fallbackId && info.miaodaUserID !== fallbackId) {
+          this.logger.warn(
+            `出勤名单姓名解析返回顺序与入参不一致：入参 ${fallbackId}，返回 ${info.miaodaUserID}（按返回 ID 归属）`,
+          );
+        }
+        map.set(resolvedId, name);
       });
     } catch (error) {
       this.logger.warn(
@@ -259,6 +334,7 @@ export class StatsService {
       '员工',
       '提交天数',
       '缺交天数',
+      '补交条数',
       ...stats.workingDays.map((d) => d.slice(5)),
     ];
     const aoa: (string | number)[][] = [header];
@@ -267,7 +343,14 @@ export class StatsService {
         e.name,
         e.submittedDays,
         e.missingDays,
-        ...stats.workingDays.map((d) => (e.days[d] ? '✓' : '✗')),
+        e.supplementCount,
+        ...stats.workingDays.map((d) => {
+          const cell: AttendanceDayCell | undefined = e.days[d];
+          if (!cell || cell.state === 'missing') return '✗';
+          const backfilled: number = e.supplementOn[d]?.length ?? 0;
+          const suffix: string = backfilled > 0 ? `+补${backfilled}` : '';
+          return cell.state === 'supplement' ? '补✓' : `✓${suffix}`;
+        }),
       ]);
     }
 
@@ -276,25 +359,31 @@ export class StatsService {
       { wch: 14 },
       { wch: 10 },
       { wch: 10 },
-      ...stats.workingDays.map(() => ({ wch: 6 })),
+      { wch: 10 },
+      ...stats.workingDays.map(() => ({ wch: 8 })),
     ];
     ws['!freeze'] = { xSplit: 1, ySplit: 1 };
 
     // 表头加粗
     stats.workingDays.forEach((_, ci) => {
-      const addr = XLSX.utils.encode_cell({ r: 0, c: ci + 3 });
+      const addr = XLSX.utils.encode_cell({ r: 0, c: ci + 4 });
       if (ws[addr]) ws[addr].s = { ...(ws[addr].s ?? {}), font: { bold: true } };
     });
-    // 按日状态着色：缺交红、已交绿
+    // 按日状态着色：缺交红、当日提交绿、补交黄
     stats.workingDays.forEach((day, ci) => {
-      const col = ci + 3;
+      const col = ci + 4;
       stats.employees.forEach((e, ri) => {
         const addr = XLSX.utils.encode_cell({ r: ri + 1, c: col });
         if (!ws[addr]) ws[addr] = { t: 's', v: '' };
+        const state: AttendanceDayState = e.days[day]?.state ?? 'missing';
+        const fill: string =
+          state === 'missing'
+            ? 'FDE8E8'
+            : state === 'supplement'
+              ? 'FEF3C7'
+              : 'E7F6EC';
         ws[addr].s = {
-          fill: e.days[day]
-            ? { fgColor: { rgb: 'E7F6EC' } }
-            : { fgColor: { rgb: 'FDE8E8' } },
+          fill: { fgColor: { rgb: fill } },
           alignment: { horizontal: 'center' },
         };
       });

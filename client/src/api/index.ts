@@ -6,3 +6,6 @@ export * as departmentReportApi from './department-report';
 export * as scheduledSendApi from './scheduled-send';
 export * as reportDocumentApi from './report-document';
 export * as taskPoolApi from './task-pool';
+export * as dataScopeApi from './data-scope';
+export * as managerDashboardApi from './manager-dashboard';
+export * as userDepartmentApi from './user-department';

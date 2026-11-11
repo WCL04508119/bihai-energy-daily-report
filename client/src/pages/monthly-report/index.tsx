@@ -47,7 +47,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import EnergyHero from '@/components/brand/EnergyHero';
 import DepartmentReportPanel from '@/components/department-report/DepartmentReportPanel';
-import { ROLE_SUBJECT, useAuth } from '@lark-apaas/client-toolkit/auth';
+import { useDataScope } from '@/hooks/use-data-scope';
 import { getApiErrorMessage } from '@/lib/api-error';
 import { buildMonthlyTemplateData, type TemplateNarrative } from '@/lib/report-template';
 import { generateTemplateNarrative } from '@/lib/report-template-ai';
@@ -441,12 +441,13 @@ const MyMonthlyReports: React.FC = () => {
 };
 
 const MonthlyReportPage: React.FC = () => {
-  const { ability, isLoading: authLoading } = useAuth();
+  const { data: scope, isLoading: scopeLoading } = useDataScope();
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedTab: string =
     searchParams.get('tab') === 'department' ? 'department' : 'mine';
   const isDirector: boolean =
-    !authLoading && ability.can('dept_director', ROLE_SUBJECT);
+    !scopeLoading &&
+    (scope?.kind === 'all' || scope?.kind === 'department');
   const activeTab: string = isDirector ? requestedTab : 'mine';
 
   const handleTabChange = (value: string): void => {
@@ -465,7 +466,7 @@ const MonthlyReportPage: React.FC = () => {
         <TabsTrigger value="mine" className="px-4">
           我的月报
         </TabsTrigger>
-        {authLoading ? (
+        {scopeLoading ? (
           <Skeleton className="h-8 w-24 rounded-md" />
         ) : isDirector ? (
           <TabsTrigger value="department" className="px-4">

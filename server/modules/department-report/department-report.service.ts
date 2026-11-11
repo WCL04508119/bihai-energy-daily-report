@@ -3,12 +3,14 @@ import {
   Inject,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import {
   DRIZZLE_DATABASE,
   type PostgresJsDatabase,
 } from '@lark-apaas/fullstack-nestjs-core';
-import { eq, and, desc, gte, lte, count } from 'drizzle-orm';
+import { eq, and, desc, gte, lte, count, inArray } from 'drizzle-orm';
+import type { DataScope } from '../data-scope/data-scope.service';
 import {
   departmentWeeklyReports,
   departmentMonthlyReports,
@@ -186,12 +188,20 @@ export class DepartmentReportService {
 
   async findWeekly(
     query: DepartmentWeeklyReportQueryDto,
+    scope: DataScope,
   ): Promise<DepartmentWeeklyReportListResponse> {
     const page = query.page ?? 1;
     const pageSize = query.pageSize ?? 20;
     const offset = (page - 1) * pageSize;
 
     const conditions = [];
+    if (scope.kind !== 'all') {
+      const allowed: string[] =
+        scope.kind === 'department' ? scope.departments : [];
+      conditions.push(
+        inArray(departmentWeeklyReports.department, allowed),
+      );
+    }
     if (query.department) {
       conditions.push(eq(departmentWeeklyReports.department, query.department));
     }
@@ -224,7 +234,10 @@ export class DepartmentReportService {
     return { items, total, page, pageSize };
   }
 
-  async findWeeklyOne(id: string): Promise<DepartmentWeeklyReportDetail> {
+  async findWeeklyOne(
+    id: string,
+    scope: DataScope,
+  ): Promise<DepartmentWeeklyReportDetail> {
     if (!UUID_PATTERN.test(id)) {
       throw new NotFoundException('部门周报不存在');
     }
@@ -240,6 +253,7 @@ export class DepartmentReportService {
     }
 
     const report = mapWeeklyRow(result[0]);
+    this.assertDepartmentVisible(scope, report.department);
     const rows = await this.fetchDailyRows(
       report.department,
       report.weekStart,
@@ -358,14 +372,33 @@ export class DepartmentReportService {
     return mapWeeklyRow(updated[0]);
   }
 
+  private assertDepartmentVisible(
+    scope: DataScope,
+    department: string,
+  ): void {
+    if (scope.kind === 'all') return;
+    if (scope.kind === 'department' && scope.departments.includes(department)) {
+      return;
+    }
+    throw new ForbiddenException('无权查看该部门报表');
+  }
+
   async findMonthly(
     query: DepartmentMonthlyReportQueryDto,
+    scope: DataScope,
   ): Promise<DepartmentMonthlyReportListResponse> {
     const page = query.page ?? 1;
     const pageSize = query.pageSize ?? 20;
     const offset = (page - 1) * pageSize;
 
     const conditions = [];
+    if (scope.kind !== 'all') {
+      const allowed: string[] =
+        scope.kind === 'department' ? scope.departments : [];
+      conditions.push(
+        inArray(departmentMonthlyReports.department, allowed),
+      );
+    }
     if (query.department) {
       conditions.push(
         eq(departmentMonthlyReports.department, query.department),
@@ -402,7 +435,10 @@ export class DepartmentReportService {
     return { items, total, page, pageSize };
   }
 
-  async findMonthlyOne(id: string): Promise<DepartmentMonthlyReportDetail> {
+  async findMonthlyOne(
+    id: string,
+    scope: DataScope,
+  ): Promise<DepartmentMonthlyReportDetail> {
     if (!UUID_PATTERN.test(id)) {
       throw new NotFoundException('部门月报不存在');
     }
@@ -418,6 +454,7 @@ export class DepartmentReportService {
     }
 
     const report = mapMonthlyRow(result[0]);
+    this.assertDepartmentVisible(scope, report.department);
     const range = monthRange(report.reportMonth);
     const rows = await this.fetchDailyRows(
       report.department,

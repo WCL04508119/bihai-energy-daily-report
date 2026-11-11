@@ -10,7 +10,7 @@ import {
   Req,
 } from '@nestjs/common';
 import type { Request } from 'express';
-import { CanRole } from '@lark-apaas/fullstack-nestjs-core';
+import { CanRole, NeedLogin } from '@lark-apaas/fullstack-nestjs-core';
 import { TaskPoolService } from './task-pool.service';
 import { CreateTaskItemDto } from './dto/create-task-item.dto';
 import { UpdateTaskItemDto } from './dto/update-task-item.dto';
@@ -31,8 +31,8 @@ export class TaskPoolController {
     return this.taskPoolService.findMine(userId);
   }
 
+  @NeedLogin()
   @Get()
-  @CanRole(['dept_director'])
   async find(
     @Query() query: TaskItemListQueryDto,
   ): Promise<TaskItemListResponse> {
@@ -40,13 +40,13 @@ export class TaskPoolController {
   }
 
   @Post()
-  @CanRole(['dept_director'])
+  @CanRole(['dept_director', 'system_admin', 'company_leader'])
   async create(@Body() dto: CreateTaskItemDto): Promise<TaskItem> {
     return this.taskPoolService.create(dto);
   }
 
   @Patch(':id')
-  @CanRole(['dept_director'])
+  @CanRole(['dept_director', 'system_admin', 'company_leader'])
   async update(
     @Param('id') id: string,
     @Body() dto: UpdateTaskItemDto,
@@ -55,7 +55,7 @@ export class TaskPoolController {
   }
 
   @Delete(':id')
-  @CanRole(['dept_director'])
+  @CanRole(['dept_director', 'system_admin', 'company_leader'])
   async remove(@Param('id') id: string): Promise<DeleteResponse> {
     await this.taskPoolService.remove(id);
     return { success: true };

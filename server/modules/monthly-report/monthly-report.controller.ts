@@ -7,10 +7,12 @@ import {
   Param,
   Query,
   Req,
+  ForbiddenException,
 } from '@nestjs/common';
 import type { Request } from 'express';
 import { NeedLogin } from '@lark-apaas/fullstack-nestjs-core';
 import { MonthlyReportService } from './monthly-report.service';
+import { DataScopeService } from '../data-scope/data-scope.service';
 import { MonthlyReportQueryDto } from './dto/monthly-report-query.dto';
 import type {
   MonthlyReport,
@@ -21,18 +23,33 @@ import type {
 export class MonthlyReportController {
   constructor(
     private readonly monthlyReportService: MonthlyReportService,
+    private readonly dataScope: DataScopeService,
   ) {}
 
+  @NeedLogin()
   @Get()
   async findAll(
+    @Req() req: Request,
     @Query() query: MonthlyReportQueryDto,
   ): Promise<MonthlyReportListResponse> {
-    return this.monthlyReportService.findAll(query);
+    const scope = await this.dataScope.resolve(
+      req.userContext.roles,
+      req.userContext.userId,
+    );
+    return this.monthlyReportService.findAll(query, scope);
   }
 
+  @NeedLogin()
   @Get(':id')
-  async findOne(@Param('id') id: string): Promise<MonthlyReport> {
-    return this.monthlyReportService.findOne(id);
+  async findOne(
+    @Req() req: Request,
+    @Param('id') id: string,
+  ): Promise<MonthlyReport> {
+    const scope = await this.dataScope.resolve(
+      req.userContext.roles,
+      req.userContext.userId,
+    );
+    return this.monthlyReportService.findOne(id, scope);
   }
 
   @NeedLogin()
@@ -57,7 +74,14 @@ export class MonthlyReportController {
     @Body() body: { reportMonth: string; reporterId?: string },
   ): Promise<MonthlyReport> {
     const { userId } = req.userContext;
-    const reporterId = body.reporterId || userId;
-    return this.monthlyReportService.generate(body.reportMonth, reporterId);
+    const scope = await this.dataScope.resolve(
+      req.userContext.roles,
+      userId,
+    );
+    const targetId = body.reporterId || userId;
+    if (targetId !== userId && scope.kind === 'self') {
+      throw new ForbiddenException('只能生成本人的月报');
+    }
+    return this.monthlyReportService.generate(body.reportMonth, targetId);
   }
 }

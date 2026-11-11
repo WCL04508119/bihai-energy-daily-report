@@ -11,7 +11,7 @@ import {
   FileService,
   type PostgresJsDatabase,
 } from '@lark-apaas/fullstack-nestjs-core';
-import { and, count, desc, eq } from 'drizzle-orm';
+import { and, count, desc, eq, sql } from 'drizzle-orm';
 import {
   departmentMonthlyReports,
   departmentWeeklyReports,
@@ -90,11 +90,17 @@ export class ReportDocumentService {
 
   async list(
     query: ReportDocumentListQueryDto,
+    scope?: { userId: string; canViewAll: boolean },
   ): Promise<ReportDocumentListResponse> {
     const page = query.page ?? 1;
     const pageSize = Math.min(query.pageSize ?? 20, 100);
 
     const conditions = [];
+    if (scope && !scope.canViewAll) {
+      conditions.push(
+        sql`(${reportDocuments.createdBy}).user_id = ${scope.userId}`,
+      );
+    }
     if (
       query.reportType &&
       query.reportType !== 'all' &&

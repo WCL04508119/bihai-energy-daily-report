@@ -8,33 +8,61 @@ import {
   Menu,
   Archive,
   ClipboardList,
+  LayoutDashboard,
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { UserDisplay } from '@/components/business-ui/user-display';
 import { useCurrentUserProfile } from '@lark-apaas/client-toolkit/hooks/useCurrentUserProfile';
+import { useDataScope } from '@/hooks/use-data-scope';
+import type { DataScopeFeatures } from '@shared/api.interface';
 import { BrandLogo } from '@/components/brand/BrandLogo';
 import { OPEN_AI_EMPLOYEE_EVENT } from '@/lib/ai-draft';
 import { AiAssistant } from '@/components/brand/AiAssistant';
 import { AiEmployeeDrawer } from '@/components/ai-employee/AiEmployeeDrawer';
 import { cn } from '@/lib/utils';
 
-const navItems = [
+interface NavItem {
+  path: string;
+  label: string;
+  icon: typeof FileText;
+  permission?: (features: DataScopeFeatures) => boolean;
+}
+
+const navItems: NavItem[] = [
   { path: '/daily-report', label: '日报管理', icon: FileText },
   { path: '/weekly-report', label: '周报管理', icon: Calendar },
   { path: '/monthly-report', label: '月报管理', icon: BarChart3 },
-  { path: '/stats', label: '统计看板', icon: PieChart },
+  {
+    path: '/manager-dashboard',
+    label: '管理者看板',
+    icon: LayoutDashboard,
+    permission: (features: DataScopeFeatures) =>
+      features.canViewManagerDashboard,
+  },
+  {
+    path: '/stats',
+    label: '统计看板',
+    icon: PieChart,
+    permission: (features: DataScopeFeatures) => features.canViewStats,
+  },
   { path: '/report-archive', label: '报告归档', icon: Archive },
   { path: '/task-pool', label: '任务池管理', icon: ClipboardList },
 ];
 
-const NavLinks = ({ onNavigate }: { onNavigate?: () => void }) => (
+const NavLinks = ({
+  onNavigate,
+  items = navItems,
+}: {
+  onNavigate?: () => void;
+  items?: NavItem[];
+}) => (
   <nav className="flex flex-col gap-1">
     <p className="px-3 pb-1.5 pt-1 text-[11px] font-medium uppercase tracking-[0.12em] text-slate-400">
       工作台
     </p>
-    {navItems.map((item) => {
+    {items.map((item) => {
       const Icon = item.icon;
       return (
         <NavLink
@@ -81,6 +109,14 @@ const Layout = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
   const user = useCurrentUserProfile();
+  const { data: scope, isLoading: scopeLoading } = useDataScope();
+  const features: DataScopeFeatures | undefined = scope?.features;
+
+  const visibleNavItems: NavItem[] = navItems.filter((item: NavItem) => {
+    if (!item.permission) return true;
+    if (scopeLoading || !features) return false;
+    return item.permission(features);
+  });
 
   useEffect(() => {
     const openFromEvent = (): void => setAiOpen(true);
@@ -119,7 +155,10 @@ const Layout = () => {
                 <BrandLogo height={48} />
               </div>
               <div className="flex-1 overflow-y-auto p-3">
-                <NavLinks onNavigate={() => setMobileOpen(false)} />
+                <NavLinks
+                  items={visibleNavItems}
+                  onNavigate={() => setMobileOpen(false)}
+                />
               </div>
               <div className="border-t border-slate-100 p-3">
                 <AiAssistant onOpen={openAiEmployeeFromMobile} />
@@ -159,7 +198,7 @@ const Layout = () => {
       <div className="flex flex-1 overflow-hidden">
         <aside className="hidden w-60 shrink-0 flex-col border-r border-slate-200/70 bg-white md:flex">
           <div className="flex-1 overflow-y-auto p-3">
-            <NavLinks />
+            <NavLinks items={visibleNavItems} />
           </div>
           <div className="border-t border-slate-100 p-3">
             <AiAssistant onOpen={openAiEmployee} />

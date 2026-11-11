@@ -6,7 +6,8 @@ export const DEPARTMENTS = [
 export type Department = (typeof DEPARTMENTS)[number];
 
 export const TASK_SOURCES = [
-  '部门日常', '项目任务', '临时需求', '会议安排', '跨部门协作', '飞书任务'
+  '部门日常', '项目任务', '投标项目', '临时需求', '会议安排', '跨部门协作',
+  '其他任务', '行政工作', '飞书任务'
 ] as const;
 export type TaskSource = (typeof TASK_SOURCES)[number];
 
@@ -17,6 +18,18 @@ export type CompletionStatus = (typeof COMPLETION_STATUSES)[number];
 
 export const isDepartment = (v: string): v is Department =>
   (DEPARTMENTS as readonly string[]).includes(v);
+
+/** 室主任的日报固定归属本部门（优先级高于通讯录映射，创建/编辑时强制归正） */
+export const DIRECTOR_DEPARTMENTS: Record<string, Department> = {
+  '1868746263437415': '仪电室',
+  '1880349984698391': '工艺模块室',
+  '1880255167891609': '热工室',
+  '1880349984687399': '工业炉室',
+};
+
+export const resolveDirectorDepartment = (
+  userId: string,
+): Department | null => DIRECTOR_DEPARTMENTS[userId] ?? null;
 export const isTaskSource = (v: string): v is TaskSource =>
   (TASK_SOURCES as readonly string[]).includes(v);
 export const isCompletionStatus = (v: string): v is CompletionStatus =>
@@ -50,16 +63,40 @@ export interface TaskPoolSyncResponse {
   updated: number;
   skippedNoAssignee: number;
   convertedFailed: number;
+  source: 'personal' | 'shared';
+  needAuth: boolean;
+}
+
+export interface FeishuAuthUrlResponse {
+  url: string;
+}
+
+export interface FeishuAuthBindRequest {
+  code: string;
+  redirectUri: string;
+}
+
+export interface FeishuAuthStatusResponse {
+  connected: boolean;
+  expiresAt: string | null;
 }
 
 export interface DeleteResponse {
   success: true;
 }
 
+export const COMPLETION_ROW_KINDS = ['routine', 'project'] as const;
+export type CompletionRowKind = (typeof COMPLETION_ROW_KINDS)[number];
+export const isCompletionRowKind = (v: string): v is CompletionRowKind =>
+  (COMPLETION_ROW_KINDS as readonly string[]).includes(v);
+
 export interface DailyCompletionRow {
+  kind?: CompletionRowKind;
   projectNames: string[];
   projectCodes: string[];
+  task?: string;
   completion?: string;
+  workHours?: string;
 }
 
 export const isDailyCompletionRow = (v: unknown): v is DailyCompletionRow =>
@@ -68,11 +105,30 @@ export const isDailyCompletionRow = (v: unknown): v is DailyCompletionRow =>
   Array.isArray((v as DailyCompletionRow).projectNames) &&
   Array.isArray((v as DailyCompletionRow).projectCodes);
 
+export const formatCompletionRowsProjectTask = (
+  rows: DailyCompletionRow[] | undefined,
+  fallbackProjects: string[] | undefined,
+): string | undefined => {
+  const lines: string[] = (rows ?? [])
+    .map((row: DailyCompletionRow) => {
+      const project: string = (row.projectNames ?? [])
+        .filter(Boolean)
+        .join('、');
+      const task: string = row.task?.trim() ?? '';
+      return [project, task].filter(Boolean).join(' · ');
+    })
+    .filter(Boolean);
+  if (lines.length > 0) return lines.join('；');
+  const fallback: string = (fallbackProjects ?? []).filter(Boolean).join('、');
+  return fallback ? fallback : undefined;
+};
+
 export interface DailyReport {
   id: string;
   reportDate: string;
   department: Department;
   taskSource: TaskSource;
+  taskSources?: TaskSource[];
   taskName: string;
   projectName?: string[];
   projectCode?: string[];
@@ -87,12 +143,15 @@ export interface DailyReport {
   cc?: string[];
   createdAt: string;
   updatedAt: string;
+  /** 服务端下发的编辑权限：仅本人可编辑/删除 */
+  canEdit?: boolean;
 }
 
 export interface CreateDailyReportRequest {
   reportDate: string;
   department: Department;
   taskSource: TaskSource;
+  taskSources?: string[];
   taskName: string;
   projectName?: string[];
   projectCode?: string[];
@@ -107,8 +166,136 @@ export interface CreateDailyReportRequest {
 
 export interface UpdateDailyReportRequest extends Partial<CreateDailyReportRequest> {}
 
-export interface DailyReportListResponse {
-  items: DailyReport[];
+export interface RecipientDefaults {
+  recipients: string[];
+  cc: string[];
+  source: 'self' | 'department' | 'none';
+}
+
+export interface MyDepartmentInfo {
+  /** 当前用户在飞书通讯录中的所属部门（与 DEPARTMENTS 取值一致），未同步到时为 null */
+  department: string | null;
+}
+
+export const DATA_SCOPE_KINDS = ['all', 'department', 'self'] as const;
+export type DataScopeKind = (typeof DATA_SCOPE_KINDS)[number];
+
+export interface DataScopeFeatures {
+  isSystemAdmin: boolean;
+  isDeptDirector: boolean;
+  isCompanyLeader: boolean;
+  isHrAdmin: boolean;
+  canViewManagerDashboard: boolean;
+  canViewStats: boolean;
+  canManageTaskPool: boolean;
+}
+
+export interface DataScopeInfo {
+  kind: DataScopeKind;
+  departments: string[];
+  features: DataScopeFeatures;
+}
+
+export const MANAGER_PERIODS = ['day', 'week', 'month'] as const;
+export type ManagerPeriod = (typeof MANAGER_PERIODS)[number];
+export const MANAGER_PERIOD_LABELS: Record<ManagerPeriod, string> = {
+  day: '日',
+  week: '周',
+  month: '月',
+};
+
+export interface ManagerMetric {
+  name: string;
+  count: number;
+  peopleCount: number;
+}
+
+export interface ManagerDepartmentRow {
+  department: string;
+  reportCount: number;
+  peopleCount: number;
+  projectCount: number;
+  issueCount: number;
+  taskSources: ManagerMetric[];
+  topProjects: ManagerMetric[];
+}
+
+export interface ManagerPersonRow {
+  userId: string;
+  name: string;
+  department: string;
+  reportCount: number;
+  activeDays: number;
+  projectCount: number;
+  issueCount: number;
+  taskSources: ManagerMetric[];
+}
+
+export interface ManagerTotals {
+  reportCount: number;
+  peopleCount: number;
+  departmentCount: number;
+  projectCount: number;
+  issueCount: number;
+}
+
+export interface ManagerDashboardResponse {
+  period: ManagerPeriod;
+  rangeStart: string;
+  rangeEnd: string;
+  rangeLabel: string;
+  totals: ManagerTotals;
+  byDepartment: ManagerDepartmentRow[];
+  byPerson: ManagerPersonRow[];
+  byTaskSource: ManagerMetric[];
+  byProject: ManagerMetric[];
+}
+
+export const MANAGER_ANALYSIS_DIMENSIONS = ['all', 'project', 'task'] as const;
+export type ManagerAnalysisDimension =
+  (typeof MANAGER_ANALYSIS_DIMENSIONS)[number];
+export const MANAGER_ANALYSIS_DIMENSION_LABELS: Record<
+  ManagerAnalysisDimension,
+  string
+> = {
+  all: '综合分析',
+  project: '按项目',
+  task: '按任务',
+};
+
+export interface ManagerAnalysisIssueItem {
+  reportDate: string;
+  department: string;
+  personName: string;
+  taskSources: string[];
+  projectNames: string[];
+  taskName: string;
+  assistanceNeeded: string;
+}
+
+export interface ManagerAnalysisCompletionItem {
+  reportDate: string;
+  department: string;
+  personName: string;
+  projectNames: string[];
+  taskName: string;
+  completion: string;
+}
+
+export interface ManagerAnalysisContext {
+  period: ManagerPeriod;
+  rangeLabel: string;
+  scopeLabel: string;
+  totals: ManagerTotals;
+  byDepartment: ManagerDepartmentRow[];
+  byTaskSource: ManagerMetric[];
+  byProject: ManagerMetric[];
+  issueItems: ManagerAnalysisIssueItem[];
+  completionItems: ManagerAnalysisCompletionItem[];
+  truncated: boolean;
+}
+
+export interface DailyReportListResponse {  items: DailyReport[];
   total: number;
   page: number;
   pageSize: number;
@@ -121,6 +308,8 @@ export interface DailyReportListQuery {
   startDate?: string;
   endDate?: string;
   reporterId?: string;
+  /** 填报人姓名关键词（服务端按姓名模糊匹配 reporterId） */
+  keyword?: string;
 }
 
 export interface ReportGoalRow {
@@ -468,17 +657,37 @@ export interface DepartmentStats {
 
 // 按人员 × 每月工作日出勤核对矩阵
 // 工作日口径：周一至周五（不含周末）；无节假日历，法定节假日按工作日统计
+export const ATTENDANCE_DAY_STATES = [
+  'on-time',
+  'supplement',
+  'missing',
+] as const;
+export type AttendanceDayState = (typeof ATTENDANCE_DAY_STATES)[number];
+export const ATTENDANCE_DAY_STATE_LABELS: Record<AttendanceDayState, string> = {
+  'on-time': '当日提交',
+  supplement: '补交',
+  missing: '未提交',
+};
+
+export interface AttendanceDayCell {
+  state: AttendanceDayState;
+  submittedOn?: string; // 补交时的实际提交日期 YYYY-MM-DD
+}
+
 export interface AttendanceEmployee {
   userId: string;
   name: string;
-  submittedDays: number; // 当月工作日中已提交日报的天数
+  submittedDays: number; // 当月工作日中已提交日报的天数（含补交）
   missingDays: number; // 当月工作日中未提交日报的天数
-  days: Record<string, boolean>; // key=YYYY-MM-DD，true=已提交，false=未提交
+  supplementCount: number; // 补交条数（报日早于实际提交日）
+  days: Record<string, AttendanceDayCell>; // key=报日 YYYY-MM-DD
+  supplementOn: Record<string, string[]>; // key=实际提交日，value=该日补交的报日列表
 }
 
 export interface AttendanceStats {
   month: string; // YYYY-MM
   workingDays: string[]; // 当月工作日日期列表 YYYY-MM-DD
+  supplementTotal: number; // 全员补交条数
   employees: AttendanceEmployee[];
 }
 
@@ -531,7 +740,8 @@ export interface CreateScheduledSendRequest {
   report: CreateDailyReportRequest;
   sendDate: string;
   sendTime: string;
-  recipientIds: string[];
+  /** 兼容字段：接收人由日报的汇报人与抄送人自动推导，前端不再传 */
+  recipientIds?: string[];
 }
 
 export interface ScheduledSendListResponse {

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
@@ -9,6 +9,7 @@ import {
   SlidersHorizontal,
   CalendarDays,
   Building2,
+  User,
   RefreshCw,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -68,6 +69,7 @@ import {
   describeBitableSyncError,
 } from '@/lib/daily-bitable-sync';
 import { dailyReportApi } from '@/api';
+import { useDataScope } from '@/hooks/use-data-scope';
 import aiAvatarUrl from '@/assets/ai-assistant.png';
 import {
   DEPARTMENTS,
@@ -91,6 +93,12 @@ const DailyReportPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [syncingId, setSyncingId] = useState<string | null>(null);
+  const { data: dataScope } = useDataScope();
+  const canSyncOthers = Boolean(dataScope && dataScope.kind !== 'self');
+  const [keywordInput, setKeywordInput] = useState<string>(
+    () => searchParams.get('keyword') ?? '',
+  );
+  const composingRef = useRef(false);
 
   const page = Number(searchParams.get('page') || 1);
   const pageSize = Number(searchParams.get('pageSize') || 10);
@@ -100,9 +108,11 @@ const DailyReportPage = () => {
     const department = searchParams.get('department');
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
+    const keyword = searchParams.get('keyword');
     if (department) q.department = department;
     if (startDate) q.startDate = startDate;
     if (endDate) q.endDate = endDate;
+    if (keyword) q.keyword = keyword;
     return q;
   }, [searchParams, page, pageSize]);
 
@@ -132,6 +142,26 @@ const DailyReportPage = () => {
     }
     next.set('page', '1');
     setSearchParams(next);
+  };
+
+  useEffect(() => {
+    if (composingRef.current) return;
+    const urlKeyword: string = searchParams.get('keyword') ?? '';
+    setKeywordInput((prev: string) => (prev.trim() === urlKeyword ? prev : urlKeyword));
+  }, [searchParams]);
+
+  const commitKeyword = (value: string): void => {
+    const trimmed: string = value.trim();
+    const current: string = searchParams.get('keyword') ?? '';
+    if (trimmed === current) return;
+    const next = new URLSearchParams(searchParams);
+    if (trimmed) {
+      next.set('keyword', trimmed);
+    } else {
+      next.delete('keyword');
+    }
+    next.set('page', '1');
+    setSearchParams(next, { replace: true });
   };
 
   const handleSyncToBitable = async (item: DailyReport): Promise<void> => {
@@ -207,6 +237,28 @@ const DailyReportPage = () => {
             </div>
             <div className="space-y-1.5">
               <label className="flex items-center gap-1.5 text-xs font-medium text-slate-500">
+                <User className="size-3.5" />
+                姓名
+              </label>
+              <Input
+                value={keywordInput}
+                onChange={(e) => {
+                  setKeywordInput(e.target.value);
+                  if (!composingRef.current) commitKeyword(e.target.value);
+                }}
+                onCompositionStart={() => {
+                  composingRef.current = true;
+                }}
+                onCompositionEnd={(e) => {
+                  composingRef.current = false;
+                  commitKeyword(e.currentTarget.value);
+                }}
+                placeholder="输入姓名搜索"
+                aria-label="按姓名筛选"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="flex items-center gap-1.5 text-xs font-medium text-slate-500">
                 <CalendarDays className="size-3.5" />
                 开始日期
               </label>
@@ -240,6 +292,7 @@ const DailyReportPage = () => {
               <TableRow className="bg-slate-50/70 hover:bg-slate-50/70">
                 <TableHead className="font-semibold text-slate-600">填报日期</TableHead>
                 <TableHead className="font-semibold text-slate-600">部门</TableHead>
+                <TableHead className="font-semibold text-slate-600">姓名</TableHead>
                 <TableHead className="font-semibold text-slate-600">任务名称</TableHead>
                 <TableHead className="font-semibold text-slate-600">项目名称</TableHead>
                 <TableHead className="w-40 text-right font-semibold text-slate-600">操作</TableHead>
@@ -248,7 +301,7 @@ const DailyReportPage = () => {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="py-16 text-center text-sm text-slate-500">
+                  <TableCell colSpan={6} className="py-16 text-center text-sm text-slate-500">
                     正在加载日报数据...
                   </TableCell>
                 </TableRow>
@@ -265,6 +318,9 @@ const DailyReportPage = () => {
                       <span className="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
                         {item.department}
                       </span>
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap text-slate-700">
+                      {item.reporterName ?? '-'}
                     </TableCell>
                     <TableCell className="max-w-[200px] truncate font-medium text-slate-800">
                       {item.taskName}
@@ -283,6 +339,24 @@ const DailyReportPage = () => {
                         >
                           <Eye className="size-4" />
                         </Button>
+                        {item.canEdit || canSyncOthers ? (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            aria-label="同步多维表格"
+                            disabled={syncingId === item.id}
+                            className="text-slate-500 hover:bg-primary/10 hover:text-primary"
+                            onClick={() => void handleSyncToBitable(item)}
+                          >
+                            <RefreshCw
+                              className={`size-4 ${
+                                syncingId === item.id ? 'animate-spin' : ''
+                              }`}
+                            />
+                          </Button>
+                        ) : null}
+                        {item.canEdit ? (
+                          <>
                         <Button
                           variant="ghost"
                           size="icon"
@@ -291,20 +365,6 @@ const DailyReportPage = () => {
                           onClick={() => navigate(`/daily-report/${item.id}/edit`)}
                         >
                           <Pencil className="size-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          aria-label="同步多维表格"
-                          disabled={syncingId === item.id}
-                          className="text-slate-500 hover:bg-primary/10 hover:text-primary"
-                          onClick={() => void handleSyncToBitable(item)}
-                        >
-                          <RefreshCw
-                            className={`size-4 ${
-                              syncingId === item.id ? 'animate-spin' : ''
-                            }`}
-                          />
                         </Button>
                         <AlertDialog open={deleteId === item.id} onOpenChange={(o) => !o && setDeleteId(null)}>
                           <AlertDialogTrigger asChild>
@@ -336,6 +396,8 @@ const DailyReportPage = () => {
                             </AlertDialogFooter>
                           </AlertDialogContent>
                         </AlertDialog>
+                          </>
+                        ) : null}
                       </div>
                     </TableCell>
                   </TableRow>
